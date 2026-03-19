@@ -131,6 +131,8 @@ public class MainOgolem {
       org.ogolem.switches.MainSwitches.main(strippedArgs);
     } else if (args[0].equalsIgnoreCase("--shmem")) {
       org.ogolem.clusters.MainThreadingClusterGlobOpt.execute(strippedArgs);
+    } else if (args[0].equalsIgnoreCase("--ligand")) { // NEW DEVELOPMENT! Not implemented yet!
+      org.ogolem.ligand.MainLigandGlobOpt.run(strippedArgs);
     } else if (args[0].equalsIgnoreCase("--tests")) {
       org.ogolem.tests.MainTests.run(strippedArgs);
     } else if (args[0].equalsIgnoreCase("--version")) {
@@ -228,6 +230,8 @@ public class MainOgolem {
       System.out.println("     for fitting spectra from a set of individual ones (BETA!)");
       System.out.println("   --switches");
       System.out.println("     for thread-based molecular switch optimization");
+      System.out.println("   --ligand");
+      System.out.println("     for catalytic ligand optimizationi. WIP!!!!");
       System.out.println("   --tests");
       System.out.println("     for testing and development purposes");
       System.out.println("   --version");

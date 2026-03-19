@@ -297,6 +297,26 @@ public class CartesianCoordinates implements StructuralData {
     return atom;
   }
 
+  public void swapAtoms(final int at1, final int at2) {
+    assert (at1 >=0);
+    assert (at1 < noOfAtoms);
+    assert (at2 >=0);
+    assert (at2 < noOfAtoms);
+    String tmpName = getAtomType(at1); 
+    short tmpSpin = getSpinOfAtom(at1);
+    float tmpCharge = getChargeOfAtom(at1);
+    short tmpAtomNumber = getAtomNumberOfAtom(at1);
+    double[] tmpPosition = getXYZCoordinatesOfAtom(at1);
+    setXYZCoordinatesOfAtom(getXYZCoordinatesOfAtom(at2),at1);
+    setXYZCoordinatesOfAtom(tmpPosition, at2);
+    atomNames[at1] = getAtomType(at2);
+    atomNames[at2] = tmpName;
+    charges[at1] = getChargeOfAtom(at2);
+    charges[at2] = tmpCharge;
+    spins[at1] = getSpinOfAtom(at2);
+    spins[at2] = tmpSpin;
+  }
+
   /**
    * Returns a copy of the reference environment and null in case that there is none.
    *
@@ -328,7 +348,7 @@ public class CartesianCoordinates implements StructuralData {
     return copy;
   }
 
-  String getAtomType(final int atom) {
+  public String getAtomType(final int atom) {
     assert (atom >= 0);
     assert (atom < noOfAtoms);
     return atomNames[atom];
@@ -499,6 +519,15 @@ public class CartesianCoordinates implements StructuralData {
     }
 
     return saToBePrinted;
+  }
+
+  public void printXYZ(final String File) {
+    final String[] CartesString = this.createPrintableCartesians();
+    try {
+      org.ogolem.io.OutputPrimitives.writeOut(File, CartesString, false);
+    } catch (Exception e) {
+      System.err.println("ERROR: Could not write to File!" + e.toString());
+    }
   }
 
   /**

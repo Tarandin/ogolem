@@ -111,6 +111,7 @@ public final class Output {
           "With contributions from:",
           "* Dominik Behrens",
           "* Mark Dittner",
+          "* Jan-Robert Vogt",
           "",
           "OGOLEM uses (and wants to thank):",
           "* Atomdroid (J. Feldt, R. A. Mata and J. M. Dieterich)",
