@@ -40,11 +40,10 @@ package org.ogolem.ligand;
 import java.util.ArrayList;
 import java.util.Random;
 // import org.ogolem.core.ZMatrix;
+import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.core.CastException;
 import org.ogolem.core.InitIOException;
 import org.ogolem.generic.ContinuousProblem;
-import org.ogolem.core.CartesianCoordinates;
-import org.ogolem.core.Input;
 
 /* This is the Ligand which is to be optimized
  * All informations about the Molecule will be stored here.
@@ -58,8 +57,10 @@ public class Ligand extends ContinuousProblem<Double> {
   private final Guest Guest;
   private double Fitness;
   private double[] Dipole;
+  private double dGuestGrad;
   private double dEnergy;
   private double dComplexEnergy;
+  private String[] optimizedStructuresLigand, optimizedStructuresComplex;
   private long id;
   private long fatherID;
   private long motherID;
@@ -89,6 +90,9 @@ public class Ligand extends ContinuousProblem<Double> {
     this.charge = source.charge;
     this.spin = source.spin;
     this.noOfAtoms = source.noOfAtoms;
+    this.dEnergy = source.dEnergy;
+    this.dComplexEnergy = source.dComplexEnergy;
+    this.dGuestGrad = source.dGuestGrad;
     this.alSides = new ArrayList<>(source.alSides.size());
     for (int iside = 0; iside < source.alSides.size(); iside++) {
       this.alSides.add(new Fragment(source.alSides.get(iside)));
@@ -152,22 +156,60 @@ public class Ligand extends ContinuousProblem<Double> {
     }
     TmpXYZ = this.Guest.getPrintableGuest();
     System.arraycopy(TmpXYZ, 2, LigandXYZ, LinesDone, this.Guest.getNoOfAtoms());
-    return LigandXYZ; 
+    return LigandXYZ;
   }
 
   public CartesianCoordinates getLigandCartesians() throws InitIOException, CastException {
     String[] sCartes = this.getPrintableLigand();
     short spins[] = new short[this.noOfAtoms];
+    spins[0] = this.getLigandSpin();
     float charges[] = new float[this.noOfAtoms];
-    return org.ogolem.core.Input.parseCartesFromFileData(sCartes, 1, new int[]{this.noOfAtoms}, spins, charges);
+    charges[0] = this.getLigandCharge();
+    return org.ogolem.core.Input.parseCartesFromFileData(
+        sCartes, 1, new int[] {this.noOfAtoms}, spins, charges);
   }
 
   public CartesianCoordinates getComplexCartesians() throws InitIOException, CastException {
-    int nAtoms = this.noOfAtoms+this.Guest.getNoOfAtoms();
+    int nAtoms = this.noOfAtoms + this.Guest.getNoOfAtoms();
     String[] sCartes = this.getPrintableComplex();
     short spins[] = new short[nAtoms];
+    spins[0] = this.getComplexSpin();
     float charges[] = new float[nAtoms];
-    return org.ogolem.core.Input.parseCartesFromFileData(sCartes, 1, new int[]{nAtoms}, spins, charges);
+    charges[0] = this.getComplexCharge();
+    return org.ogolem.core.Input.parseCartesFromFileData(
+        sCartes, 1, new int[] {nAtoms}, spins, charges);
+  }
+
+  public float getCharge() {
+    return this.charge;
+  }
+
+  public short getSpin() {
+    return this.spin;
+  }
+
+  private float getLigandCharge() {
+    this.charge = this.Backbone.getCharge();
+    for (int iSides = 0; iSides <this. alSides.size(); iSides++) {
+      this.charge += this.alSides.get(iSides).getCharge();
+    }
+    return this.charge;
+  }
+
+  private float getComplexCharge() {
+    return this.charge + this.Guest.getCharge();
+  }
+
+  private short getLigandSpin() {
+    this.spin = this.Backbone.getSpin();
+    for (int iSides = 0; iSides <this. alSides.size(); iSides++) {
+      this.spin += this.alSides.get(iSides).getSpin() - 1;
+    }
+    return this.spin;
+  }
+
+  private short getComplexSpin() {
+    return (short)(this.getLigandSpin() + this.Guest.getSpin());
   }
 
   public Integer getSidesCode() {
@@ -181,6 +223,23 @@ public class Ligand extends ContinuousProblem<Double> {
       res += tmp;
     }
     return res;
+  }
+
+  public void setOptimizedData(
+      CartesianCoordinates cartesLigand, CartesianCoordinates cartesComplex) {
+    this.optimizedStructuresLigand = cartesLigand.createPrintableCartesians();
+    this.optimizedStructuresComplex = cartesComplex.createPrintableCartesians();
+  }
+
+  public void printOptimizedIndividual(String prefix, int iRank) throws Exception {
+    String sFile = prefix + iRank + "ligand" + this.getID() + ".xyz";
+    try {
+      Output.printMiscToFile(
+          sFile, this.optimizedStructuresLigand, this.optimizedStructuresComplex);
+    } catch (Exception e) {
+      System.err.println("Could not write Individual to to File " + sFile + "! " + e.toString());
+      throw e;
+    }
   }
 
   public int getFragID(int iside) {
@@ -197,16 +256,17 @@ public class Ligand extends ContinuousProblem<Double> {
 
   public void setSides(int[] iSetupIDs, Fragment FragList[]) {
     for (int isides = 0; isides < iSetupIDs.length; isides++) {
-      if (iSetupIDs[isides] == this.getFragID(isides)) { 
+      if (iSetupIDs[isides] == this.getFragID(isides)) {
         continue;
       }
       this.alSides.set(isides, new Fragment(FragList[iSetupIDs[isides]]));
     }
+    this.printLigand("Ligand"+this.getID()+".xyz");
   }
 
   public void randomizeSides(LigandConfig lConf) {
     final Random random = new Random();
-    final int nSides = lConf.Sides.length; 
+    final int nSides = lConf.Sides.length;
     int which = random.nextInt(nSides);
     for (int ipos = 0; ipos < Backbone.getNumXCPos(); ipos++) {
       which = random.nextInt(nSides);
@@ -222,7 +282,7 @@ public class Ligand extends ContinuousProblem<Double> {
   public void evalNoOfAtoms() {
     int res = this.Backbone.getNumOfAtoms();
     for (int isides = 0; isides < this.alSides.size(); isides++) {
-       res += this.alSides.get(isides).getNumOfAtoms();
+      res += this.alSides.get(isides).getNumOfAtoms();
     }
     this.noOfAtoms = res;
   }
@@ -233,6 +293,31 @@ public class Ligand extends ContinuousProblem<Double> {
 
   public double[] getDipole() {
     return this.Dipole.clone();
+  }
+
+  public void setDipole(double[] dDipole) {
+    this.Dipole = dDipole.clone();
+  }
+
+  public double[] approxDipole() {
+    double[] resDipole = new double[3];
+    double[][] fragXYZ = this.Backbone.getCartes().getAllXYZCoord();
+    float[] fragCharges = this.Backbone.getCartes().getAllCharges();
+    for (int iAtom = 0; iAtom < fragCharges.length; iAtom++) {
+      for (int iDir = 0; iDir < 3; iDir++) {
+        resDipole[iDir] += fragXYZ[iDir][iAtom] * fragCharges[iAtom];
+      }
+    }
+    for (int iFrag = 0; iFrag < this.alSides.size(); iFrag++) {
+      fragXYZ = this.alSides.get(iFrag).getCartes().getAllXYZCoord();
+      fragCharges = this.alSides.get(iFrag).getCartes().getAllCharges();
+      for (int iAtom = 0; iAtom < fragCharges.length; iAtom++) {
+        for (int iDir = 0; iDir < 3; iDir++) {
+          resDipole[iDir] += fragCharges[iDir] * fragXYZ[iDir][iAtom];
+        }
+      }
+    }
+    return resDipole;
   }
 
   public double getComplexEnergy() {
@@ -257,6 +342,16 @@ public class Ligand extends ContinuousProblem<Double> {
   @Override
   public long getMotherID() {
     return this.motherID;
+  }
+
+  @Override
+  public void setFatherID(long id) {
+    this.fatherID = id;
+  }
+
+  @Override
+  public void setMotherID(long id) {
+    this.motherID = id;
   }
 
   @Override

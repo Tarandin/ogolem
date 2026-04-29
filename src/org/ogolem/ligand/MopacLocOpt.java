@@ -55,13 +55,112 @@ final class MopacLocOpt implements LocalOptimization {
   }
 
   @Override
-  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartes, int iID) {
+  public boolean doSinglePoint(final CartesianCoordinates cartes, int iID, Ligand lig) {
+    
+    if(!this.runMopac(cartes, iID, true)) return false;
 
     final String sMopacInput = "mopac" + iID + ".dat";
-    final String sMopacBasis = "mopac" + iID;
+    final String sMopacOutput = sMopacInput.substring(0, sMopacInput.indexOf(".")) + ".out";
+    double tmpDipole[] = new double[3];
+
+    if (!bDebug) {
+      try {
+        org.ogolem.core.Input.RemoveMopacFiles(sMopacInput);
+      } catch (Exception e) {
+        System.err.println("Problem cleaning mopac files up."+e.toString());
+      }
+    }
+
+    if (lig != null) lig.setDipole(tmpDipole); 
+
+    return true;
+  }
+
+  @Override
+  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartes, int iID, Ligand lig) {
+
+    //final String sMopacInput = "mopac" + iID + ".dat";
+    //final String sMopacBasis = "mopac" + iID;
 
     final float[] faCharges = cartes.getAllCharges();
     final short[] iaSpins = cartes.getAllSpins();
+
+   // try {
+   //   WriteOutput(
+   //       sMopacInput,
+   //       cartes.getAllXYZCoordsCopy(),
+   //       cartes.getAllAtomTypes(),
+   //       cartes.getTotalCharge(),
+   //       cartes.getTotalSpin());
+   // } catch (InitIOException e) {
+   //   System.err.println(
+   //       "ERROR: Problem in writing geometry for mopac input (local optimization) "
+   //           + e.toString());
+   // }
+
+   // try {
+   //   final Runtime rt = Runtime.getRuntime();
+   //   final Process proc = rt.exec(new String[] {"mopac", sMopacBasis});
+
+   //   final StreamGobbler errorGobbler = new StreamGobbler(proc.getErrorStream(), "ERROR");
+
+   //   final StreamGobbler outputGobbler = new StreamGobbler(proc.getInputStream(), "OUTPUT");
+
+   //   errorGobbler.start();
+   //   outputGobbler.start();
+
+   //   final int iExitValue = proc.waitFor();
+
+   //   if (iExitValue != 0) {
+   //     System.err.println("WARNING: Mopac returns non-zero return value (local optimization)");
+   //     return null;
+   //   } 
+   // } catch (Exception e) {
+   //   System.err.println("Mopac has problem (local optimization)" + ".out");
+   //   return null;
+   // }
+
+    if (!this.runMopac(cartes, iID, false)) {
+      System.err.println("LocOpt with mopac failed! Return null!");
+      return null;
+    }
+
+    final String sMopacInput = "mopac" + iID + ".dat";
+    final String sMopacOutput = sMopacInput.substring(0, sMopacInput.indexOf(".")) + ".out";
+    double tmpDipole[] = new double[3];
+    CartesianCoordinates newCartes = new CartesianCoordinates(cartes);
+
+    try {
+      newCartes =
+          LigandInput.readXYZMopacOutput(
+              sMopacOutput,
+              cartes.getNoOfAtoms(),
+              cartes.getNoOfMolecules(),
+              cartes.getAllAtomsPerMol(),
+              tmpDipole);
+    } catch (Exception e) {
+      System.err.println("WARNING: Problem in reading the output of mopac. "+e.toString());
+    }
+
+    if (!bDebug) {
+      try {
+        org.ogolem.core.Input.RemoveMopacFiles(sMopacInput);
+      } catch (Exception e) {
+        System.err.println("Problem cleaning mopac files up."+e.toString());
+      }
+    }
+    newCartes.setAllCharges(faCharges);
+    newCartes.setAllSpins(iaSpins);
+
+    if (lig != null) lig.setDipole(tmpDipole);
+
+    return newCartes;
+  }
+
+  private boolean runMopac(final CartesianCoordinates cartes, int iID, boolean justSP) {
+
+    final String sMopacInput = "mopac" + iID + ".dat";
+    final String sMopacBasis = "mopac" + iID;
 
     try {
       WriteOutput(
@@ -69,7 +168,8 @@ final class MopacLocOpt implements LocalOptimization {
           cartes.getAllXYZCoordsCopy(),
           cartes.getAllAtomTypes(),
           cartes.getTotalCharge(),
-          cartes.getTotalSpin());
+          cartes.getTotalSpin(),
+          justSP);
     } catch (InitIOException e) {
       System.err.println(
           "ERROR: Problem in writing geometry for mopac input (local optimization) "
@@ -90,39 +190,14 @@ final class MopacLocOpt implements LocalOptimization {
       final int iExitValue = proc.waitFor();
 
       if (iExitValue != 0) {
-        System.err.println("WARNING: Mopac returns non-zero return value (local optimization)");
-        return null;
-      } 
-    } catch (Exception e) {
-      System.err.println("Mopac has problem (local optimization)" + ".out");
-      return null;
-    }
-
-    final String sMopacOutput = sMopacInput.substring(0, sMopacInput.indexOf(".")) + ".out";
-    CartesianCoordinates newCartes = new CartesianCoordinates(cartes);
-
-    try {
-      newCartes =
-          LigandInput.readXYZMopacOutput(
-              sMopacOutput,
-              cartes.getNoOfAtoms(),
-              cartes.getNoOfMolecules(),
-              cartes.getAllAtomsPerMol());
-    } catch (Exception e) {
-      System.err.println("WARNING: Problem in reading the output of mopac. "+e.toString());
-    }
-
-    if (!bDebug) {
-      try {
-        org.ogolem.core.Input.RemoveMopacFiles(sMopacInput);
-      } catch (Exception e) {
-        System.err.println("Problem cleaning mopac files up."+e.toString());
+        System.err.println("WARNING: Mopac returns non-zero return value for Ligand" + iID + ".");
+        return false;
       }
+    } catch (Exception e) {
+      System.err.println("Mopac has problem mopac" + iID + ".out");
+      return false;
     }
-    newCartes.setAllCharges(faCharges);
-    newCartes.setAllSpins(iaSpins);
-
-    return newCartes;
+    return true;
   }
 
   private void WriteOutput(
@@ -130,7 +205,8 @@ final class MopacLocOpt implements LocalOptimization {
       double[][] daXYZ,
       String[] saAtoms,
       final int iTotalCharge,
-      final int iTotalSpin) 
+      final int iTotalSpin,
+      final boolean justSP) 
       throws InitIOException {
 
     final int iSpin = iTotalSpin;
@@ -139,7 +215,7 @@ final class MopacLocOpt implements LocalOptimization {
       case 0:
         try {
           Output.writeMopacInput(
-              sMopacInput, "mndo", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles);
+              sMopacInput, "mndo", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
         } catch (InitIOException e) {
           throw e;
         };
@@ -147,7 +223,7 @@ final class MopacLocOpt implements LocalOptimization {
       case 1:
         try {
           Output.writeMopacInput(
-              sMopacInput, "am1", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles);
+              sMopacInput, "am1", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
         } catch (InitIOException e) {
           throw e;
         };
@@ -155,7 +231,7 @@ final class MopacLocOpt implements LocalOptimization {
       case 3:
         try {
           Output.writeMopacInput(
-              sMopacInput, "pm5", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles);
+              sMopacInput, "pm5", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
          } catch (InitIOException e) {
            throw e;
          };
@@ -163,15 +239,23 @@ final class MopacLocOpt implements LocalOptimization {
       case 4:
         try {
           Output.writeMopacInput(
-              sMopacInput, "pm6", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles);
+              sMopacInput, "pm6", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
          } catch (InitIOException e) {
            throw e;
          };
          break;
+      case 5:
+         try {
+            Output.writeMopacInput(
+                sMopacInput, "pm6-D3H4", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
+         } catch (InitIOException e) {
+            throw e;
+         }
+         break;       
       default:
         try {
           Output.writeMopacInput(
-              sMopacInput, "am1", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles);
+              sMopacInput, "am1", daXYZ, saAtoms, iTotalCharge, iSpin, iNoOfCycles, justSP);
          } catch (InitIOException e) {
            throw e;
          };

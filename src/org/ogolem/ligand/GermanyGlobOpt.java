@@ -39,7 +39,7 @@ package org.ogolem.ligand;
 
 import java.util.ArrayList;
 
-final class GermanyGlobOpt implements LigandDarwin{
+final class GermanyGlobOpt implements LigandDarwin {
 
   private final boolean bMoreMut;
   private final Taboos taboos;
@@ -50,16 +50,23 @@ final class GermanyGlobOpt implements LigandDarwin{
     this.bMoreMut = lConf.bMoreMutation;
     this.taboos = Taboos.getReference();
     this.fitness = new FitnessFunction(lConf);
-    this.FragList =  new Fragment[lConf.Sides.length];
+    this.FragList = new Fragment[lConf.Sides.length];
     System.arraycopy(lConf.Sides, 0, this.FragList, 0, lConf.Sides.length);
   }
 
   @Override
-  public Ligand doTheGlobOpt(final int iID, final Ligand lMother, final Ligand lFather) {
+  public Ligand doTheGlobOpt(final long iID, final Ligand lMother, final Ligand lFather) {
     final ArrayList<Ligand> vChilds = Cross(lMother, lFather);
 
     final Ligand lOne = Mutate(vChilds.get(0));
     final Ligand lTwo = Mutate(vChilds.get(1));
+
+    lOne.setID(iID);
+    lTwo.setID(iID);
+    lOne.setFatherID(lFather.getID());
+    lOne.setMotherID(lMother.getID());
+    lTwo.setFatherID(lFather.getID());
+    lTwo.setMotherID(lMother.getID());
 
     final boolean bKnownOne = taboos.isThisKnown(lOne);
     final boolean bKnownTwo = taboos.isThisKnown(lTwo);
@@ -78,6 +85,7 @@ final class GermanyGlobOpt implements LigandDarwin{
     }
 
     if (bKnownOne && bKnownTwo) {
+      System.out.println("Both children for Ligand" + iID + " are known. Retrun null!");
       return null;
     } else if (bKnownOne && !bKnownTwo) {
       return lTwo;
@@ -109,8 +117,8 @@ final class GermanyGlobOpt implements LigandDarwin{
     lChildOne.setSides(iChildGen[0], this.FragList);
     lChildTwo.setSides(iChildGen[1], this.FragList);
 
-    alChildren.add(lChildOne);
-    alChildren.add(lChildTwo);
+    alChildren.add(0,lChildOne);
+    alChildren.add(1,lChildTwo);
 
     return alChildren;
   }

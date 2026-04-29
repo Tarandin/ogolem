@@ -39,8 +39,8 @@ package org.ogolem.ligand;
 
 import java.util.ArrayList;
 
-interface LigandDarwin extends GlobalOptimization{
-  
+interface LigandDarwin extends GlobalOptimization {
+
   Ligand Mutate(final Ligand LigandStart);
 
   ArrayList<Ligand> Cross(final Ligand lMother, final Ligand lFather);

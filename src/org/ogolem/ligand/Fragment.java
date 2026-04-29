@@ -160,14 +160,39 @@ public final class Fragment implements Serializable {
 
   public void sortXCtoEnd() {
     for (int ixc = 0; ixc < this.NumXCPositions; ixc++) {
-      if (this.XCPositions[ixc] == this.getNumOfAtoms()+ixc) continue;
-      this.Cartes.swapAtoms(this.XCPositions[ixc], this.getNumOfAtoms()+ixc);
-      this.XCPositions[ixc] = this.getNumOfAtoms()+ixc;
+      if (this.XCPositions[ixc] == this.getNumOfAtoms() + ixc) continue;
+      this.Cartes.swapAtoms(this.XCPositions[ixc], this.getNumOfAtoms() + ixc);
+      this.XCPositions[ixc] = this.getNumOfAtoms() + ixc;
     }
   }
 
   public CartesianCoordinates getCartes() {
     return new CartesianCoordinates(this.Cartes);
+  }
+
+  public CartesianCoordinates getCartesWithH() {
+    CartesianCoordinates newCartes = new CartesianCoordinates(this.Cartes);
+    for (int iXC : this.XCPositions) {
+      newCartes.setAtomType(iXC, "H");
+    }
+    return newCartes;
+  }
+
+  public void setCartes(CartesianCoordinates newCartes) {
+    this.Cartes.setAllSpins(newCartes.getAllSpins());
+    this.Cartes.setAllCharges(newCartes.getAllCharges());
+    this.Cartes.setAllXYZAsCopy(newCartes.getAllXYZCoord());
+    this.Cartes.setEnergy(newCartes.getEnergy());
+  }
+
+  public void setCartesWithXC(CartesianCoordinates newCartes) {
+    this.Cartes.setAllSpins(newCartes.getAllSpins());
+    this.Cartes.setAllCharges(newCartes.getAllCharges());
+    this.Cartes.setAllXYZAsCopy(newCartes.getAllXYZCoord());
+    this.Cartes.setEnergy(newCartes.getEnergy());
+    for (int iXC : this.XCPositions) {
+      this.Cartes.setAtomType(iXC, "Xx");
+    }
   }
 
   public int getID() {
@@ -192,7 +217,11 @@ public final class Fragment implements Serializable {
     int[] myXCArray = null;
     ArrayList<Integer> XCPos = new ArrayList<Integer>();
     for (int i = 0; i < natoms; i++) {
-      if (this.Cartes.getAtomType(i).trim().equals("X")) {
+      if (this.Cartes.getAtomType(i).trim().equals("XX")) {
+        XCPos.add(i);
+      } else if (this.Cartes.getAtomType(i).trim().equals("X")) {
+        XCPos.add(i);
+      } else if (this.Cartes.getAtomType(i).trim().equals("Xx")) {
         XCPos.add(i);
       }
     }

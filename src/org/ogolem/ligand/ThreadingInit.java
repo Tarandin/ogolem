@@ -38,15 +38,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.ogolem.ligand;
 
 import java.util.concurrent.*;
+import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.generic.genericpool.GenericPool;
 
 /**
- * A threading intial fill of Population. This is copied and barly modifyed from org.ogolem.switches
+ * A threading intial fill of Population and preopt Fragments.
  */
 final class ThreadingInits {
 
   private final LigandConfig lConf;
-  private final GenericPool<Double, Ligand> pool;
+  private GenericPool<Double, Ligand> pool;
   private final int iNoOfThreads;
 
   ThreadingInits(
@@ -58,10 +59,37 @@ final class ThreadingInits {
     this.pool = pool;
   }
 
+  ThreadingInits(
+      final LigandConfig ligandConf,
+      final int iNumberofThreads) {
+    this.iNoOfThreads = iNumberofThreads;
+    this.lConf = ligandConf;
+  }
+
+  void setPool(GenericPool<Double, Ligand> pool) {
+    this.pool = pool;
+  }
+
+  void initializeFragments() {
+    final ExecutorService threadpool = Executors.newFixedThreadPool(iNoOfThreads);
+    threadpool.submit(createGuestTask(lConf));
+    threadpool.submit(createBackboneTask(lConf));
+    for (int i = 0; i < this.lConf.Sides.length; i++) {
+      threadpool.submit(createFragListTask(i, lConf));
+    }
+    threadpool.shutdown();
+    try {
+      threadpool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+    } catch (InterruptedException e) {
+      System.err.println(
+          "Threadpool reached wallclock limit. This should really NEVER happen! " + e.toString());
+    }
+  }
+
   void fillInitialPool() {
     final Ligand refLigand = this.pool.getExample();
     final ExecutorService threadpool = Executors.newFixedThreadPool(iNoOfThreads);
-    for (int i = 0; i < this.lConf.PoolSize; i++) {
+    for (long i = 0; i < this.lConf.PoolSize; i++) {
       threadpool.submit(createFillTask(refLigand, i, this.lConf, this.pool, Taboos.getReference()));
     }
     threadpool.shutdown();
@@ -76,7 +104,7 @@ final class ThreadingInits {
 
   private static Runnable createFillTask(
       final Ligand refLigand,
-      final int i,
+      final long i,
       final LigandConfig lConf,
       GenericPool pool,
       final Taboos taboos) {
@@ -84,6 +112,8 @@ final class ThreadingInits {
     return () -> {
       final Ligand lLigand = new Ligand(refLigand);
       lLigand.setID(i);
+      lLigand.setFatherID(-1);
+      lLigand.setMotherID(-1);
       lLigand.randomizeSides(lConf);
 
       final FitnessFunction fitness = new FitnessFunction(lConf);
@@ -92,6 +122,37 @@ final class ThreadingInits {
 
       pool.addIndividualForced(lLigand, lLigand.getFitness());
       taboos.addTaboo(lLigand);
+    };
+  }
+
+  private static Runnable createFragListTask(
+      final int index,
+      LigandConfig lConf) {
+
+      return () -> {
+        final LocOpt locOpt = new LocOpt(lConf);
+        CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Sides[index].getCartesWithH(), index, null);
+        if (newCartes != null) lConf.Sides[index].setCartesWithXC(newCartes);
+      };
+  }
+
+  private static Runnable createBackboneTask(LigandConfig lConf) {
+    return () -> {
+      final LocOpt locOpt = new LocOpt(lConf);
+      CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Back.getCartesWithH(), -1, null);
+      if (newCartes != null) {
+         lConf.Back.setCartesWithXC(newCartes);
+      } else {
+        System.err.println("Could not optimize the bare Backbone! This is not a good start!");
+      }
+    };
+  }
+
+  private static Runnable createGuestTask(LigandConfig lConf) {
+    return () -> {
+      final LocOpt locOpt = new LocOpt(lConf);
+      boolean converged = locOpt.doSinglePoint(lConf.Guest.getCartesianCoordinates(), -2, null);
+      if (!converged) System.err.println("Warning! Given Guest is not stable on its own!");
     };
   }
 }

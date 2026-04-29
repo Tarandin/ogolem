@@ -70,6 +70,7 @@ public class CartesianCoordinates implements StructuralData {
   private String[] atomNames;
   private String method;
   private double energy;
+  private double gradNorm;
   private float[] charges;
   private short[] spins;
   private short[] atomNumbers;
@@ -246,12 +247,20 @@ public class CartesianCoordinates implements StructuralData {
     return atomNumbers;
   }
 
+  public double getGradNorm() {
+    return gradNorm;
+  }
+
   short getAtomNumberOfAtom(final int which) {
     return atomNumbers[which];
   }
 
   void allocateNumbers() {
     atomNumbers = new short[noOfAtoms];
+  }
+
+  public void setGradNorm(final double dGradNorm) {
+    this.gradNorm = dGradNorm;
   }
 
   void setAtomNumbers(final short[] numbers) {
@@ -298,16 +307,16 @@ public class CartesianCoordinates implements StructuralData {
   }
 
   public void swapAtoms(final int at1, final int at2) {
-    assert (at1 >=0);
+    assert (at1 >= 0);
     assert (at1 < noOfAtoms);
-    assert (at2 >=0);
+    assert (at2 >= 0);
     assert (at2 < noOfAtoms);
-    String tmpName = getAtomType(at1); 
+    String tmpName = getAtomType(at1);
     short tmpSpin = getSpinOfAtom(at1);
     float tmpCharge = getChargeOfAtom(at1);
     short tmpAtomNumber = getAtomNumberOfAtom(at1);
     double[] tmpPosition = getXYZCoordinatesOfAtom(at1);
-    setXYZCoordinatesOfAtom(getXYZCoordinatesOfAtom(at2),at1);
+    setXYZCoordinatesOfAtom(getXYZCoordinatesOfAtom(at2), at1);
     setXYZCoordinatesOfAtom(tmpPosition, at2);
     atomNames[at1] = getAtomType(at2);
     atomNames[at2] = tmpName;
@@ -352,6 +361,14 @@ public class CartesianCoordinates implements StructuralData {
     assert (atom >= 0);
     assert (atom < noOfAtoms);
     return atomNames[atom];
+  }
+
+  // Function to change atom type. Used to change X or Xx to H for reference calculations with iterfaced programs.
+  public void setAtomType(final int atom, final String newType) {
+    assert (atom >= 0);
+    assert (atom < noOfAtoms);
+    atomNames[atom] = newType;
+    atomNumbers[atom] = AtomicProperties.giveAtomicNumber(newType);
   }
 
   public String[] getAllAtomTypes() {
@@ -466,7 +483,7 @@ public class CartesianCoordinates implements StructuralData {
     this.spins = newSpins;
   }
 
-  void setChargeAtAtom(final float charge, final int atom) {
+  public void setChargeAtAtom(final float charge, final int atom) {
     assert (atom >= 0);
     charges[atom] = charge;
   }

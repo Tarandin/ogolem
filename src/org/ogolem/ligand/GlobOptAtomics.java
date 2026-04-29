@@ -37,14 +37,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Random;
 
 final class GlobOptAtomics {
 
   static int[][] genotypeCross(final int[] iMother, final int[] iFather) {
-    
+
     final Random random = new Random();
     final int iLength = iMother.length;
 
@@ -67,7 +65,7 @@ final class GlobOptAtomics {
   }
 
   static int[] genotypeMutation(final int[] iStart, final boolean bMoreMutation) {
-    
+
     final Random random = new Random();
 
     int iRandom = random.nextInt(20);

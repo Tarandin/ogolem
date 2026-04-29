@@ -37,9 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
-
 interface GlobalOptimization {
 
-  Ligand doTheGlobOpt(final int iID, final Ligand lMother, final Ligand lFather);
-
+  Ligand doTheGlobOpt(final long iID, final Ligand lMother, final Ligand lFather);
 }

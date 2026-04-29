@@ -40,7 +40,7 @@ package org.ogolem.ligand;
 import org.ogolem.core.CartesianCoordinates;
 
 final class LocOpt implements LocalOptimization {
-  
+
   private final LocalOptimization locopt;
 
   LocOpt(final LigandConfig lConf){
@@ -81,15 +81,23 @@ final class LocOpt implements LocalOptimization {
       case 204:
         locopt = new MopacLocOpt(4, lConf.iMaxIterLocOpt);
         break;
+      case 205:
+         locopt = new MopacLocOpt(5, lConf.iMaxIterLocOpt);
+         break;
       default:
         System.err.println("WARNING: No choice " + lConf.WhichLocAlgo +
-                " available for the local optimization. Using Tinker now.");
-        locopt = new TinkerLocOpt(0, lConf.dBlowBondsFac, lConf.Debug);
+                " available for the local optimization. Using mopac now.");
+        locopt = new MopacLocOpt(0, lConf.MaxIterLocOpt);
     }
   }
 
   @Override
-  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartesStart, final int id){
-    return locopt.doLocOpt(cartesStart, id);
+  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartesStart, final int id, Ligand lig){
+    return locopt.doLocOpt(cartesStart, id, lig);
+  }
+
+  @Override
+  public boolean doSinglePoint(final CartesianCoordinates cartes, final int id, Ligand lig){
+    return locopt.doSinglePoint(cartes, id, lig);
   }
 }

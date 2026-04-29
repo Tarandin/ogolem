@@ -63,8 +63,8 @@ final class ThreadingGlobOpt {
   void doGlobOpt() {
     final ExecutorService threadpool = Executors.newFixedThreadPool(iThreads);
 
-    for (int i = iOffset; i < (iIterations + iOffset); i++) {
-      threadpool.submit(createLigandTask(pool, i, conf, Taboos.getReference()));
+    for (long i = this.iOffset; i < (this.iIterations + this.iOffset); i++) {
+      threadpool.submit(createLigandTask(this.pool, i, this.conf, Taboos.getReference()));
     }
 
     threadpool.shutdown();
@@ -76,15 +76,19 @@ final class ThreadingGlobOpt {
     }
   }
 
-  private static Runnable createLigandTask(final GenericPool<Double, Ligand> pool, final int position,
+  private static Runnable createLigandTask(final GenericPool<Double, Ligand> pool, final long position,
           final LigandConfig lconf, final Taboos taboos) {
 
     return () -> {
       final List<Ligand> vParents = pool.getParents();
       final LigandGlobOpt globopt = new LigandGlobOpt(lconf);
       final Ligand lChild = globopt.doTheGlobOpt(position, vParents.get(0), vParents.get(1));
-      
+      boolean accepted;
+
       if (lChild != null) {
+        System.out.println("End Job"+position + " sucessfully!");
+        System.out.println("Fitness: "+lChild.getFitness());
+        accepted = pool.addIndividual(lChild, lChild.getFitness());
         taboos.addTaboo(lChild);
       }
     };

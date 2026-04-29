@@ -38,24 +38,26 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.ogolem.ligand;
 
 public final class LigandGlobOpt implements GlobalOptimization {
-  
+
   private GlobalOptimization globopt;
 
   public LigandGlobOpt(final LigandConfig lconf) {
-    
-    switch(lconf.WhichGlobAlgo) {
+
+    switch (lconf.WhichGlobAlgo) {
       case 0:
         globopt = new GermanyGlobOpt(lconf);
         break;
       default:
-        System.err.println("WARNING: Doesn't understand choice "+lconf.WhichGlobAlgo +
-                " for the global optimization. Using Germany now.");
+        System.err.println(
+            "WARNING: Doesn't understand choice "
+                + lconf.WhichGlobAlgo
+                + " for the global optimization. Using Germany now.");
         globopt = new GermanyGlobOpt(lconf);
     }
   }
 
   @Override
-  public Ligand doTheGlobOpt(final int iID, final Ligand lMother, final Ligand lFather){
+  public Ligand doTheGlobOpt(final long iID, final Ligand lMother, final Ligand lFather) {
     return globopt.doTheGlobOpt(iID, lMother, lFather);
   }
 }

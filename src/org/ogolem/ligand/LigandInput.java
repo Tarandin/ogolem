@@ -41,13 +41,11 @@ package org.ogolem.ligand;
 import static org.ogolem.core.Constants.*;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import org.ogolem.core.BondInfo;
+import java.util.ArrayList;
 import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.core.CastException;
 import org.ogolem.core.InitIOException;
-
 
 /*
  * Toolset to read the Input from the File and help configure it.
@@ -178,33 +176,106 @@ public final class LigandInput {
         } catch (Exception e) {
           System.err.println("WARNING: Couldn't cast double for TargetDipoleZ. " + e.toString());
         }
+      } else if (CurrentLine.startsWith("DipolePenelty=")) {
+        final String Temp = CurrentLine.substring(14).trim();
+        double DipolePen;
+        try {
+          DipolePen = Double.parseDouble(Temp);
+          config.dDipolePen = DipolePen;
+        } catch (Exception e) {
+          System.err.println("WARNING: Couldn't cast double for DipolePenelty. " + e.toString());
+        }
+      } else if (CurrentLine.startsWith("BindingPenelty=")) {
+        final String Temp = CurrentLine.substring(15).trim();
+        double BindPen;
+        try {
+          BindPen = Double.parseDouble(Temp);
+          config.dBindPen = BindPen;
+        } catch (Exception e) {
+          System.err.println("WARNING: Couldn't cast double for BindingPenelty. " + e.toString());
+        }
+      } else if (CurrentLine.startsWith("GradientPenelty=")) {
+        final String Temp = CurrentLine.substring(16).trim();
+        double GradPen;
+        try {
+          GradPen = Double.parseDouble(Temp);
+          config.dGradPen = GradPen;
+        } catch (Exception e) {
+          System.err.println("WARNING: Couldn't cast double for GradientPenelty. " + e.toString());
+        }
       } else if (CurrentLine.startsWith("BackboneXYZ")) {
-        final String Temp = CurrentLine.substring(12).trim();
+        final String Temp = CurrentLine.substring(12,CurrentLine.indexOf(":charge"));
+        final String Temp2 = CurrentLine.substring(CurrentLine.indexOf(":charge=")+8, CurrentLine.indexOf(":spin="));
+        final String Temp3 = CurrentLine.substring(CurrentLine.indexOf(":spin=")+6).trim();
+        short charge=0, spin=1;
+        try {
+          charge = Short.parseShort(Temp2);
+          spin = Short.parseShort(Temp3);
+        } catch (Exception e) {
+         System.err.println("Could not parese guests electronic information! "+e.toString());
+         System.exit(1);
+        }
         if (!Temp.endsWith(".xyz")) {
           System.err.println("ERROR: Backbone needs to be in XYZ format! Aborting!");
           System.exit(1);
         }
-        config.Back = new Fragment(Temp, 0);
+        config.Back = new Fragment(Temp, 0, charge, spin);
       } else if (CurrentLine.startsWith("GuestXYZ=")) {
-        final String Temp = CurrentLine.substring(9).trim();
+        final String Temp = CurrentLine.substring(9, CurrentLine.indexOf(":charge="));
+        final String Temp2 = CurrentLine.substring(CurrentLine.indexOf(":charge=")+8, CurrentLine.indexOf(":spin="));
+        final String Temp3 = CurrentLine.substring(CurrentLine.indexOf(":spin=")+6).trim();
+        short charge=0, spin=1;
         if (!Temp.endsWith(".xyz")) {
           System.err.println("ERROR: Guest needs to be in XYZ format! Aborting!");
           System.exit(1);
         }
-        config.Guest = new Guest(Temp);
-      } else if (CurrentLine.startsWith("SidesDir=")) {
-        final String Temp = CurrentLine.substring(9).trim();
-        String[] SidesXYZFiles = null;
         try {
-          SidesXYZFiles = org.ogolem.io.InquiryPrimitives.fileListWithSuffix(".xyz", Temp);
-        } catch (IOException e) {
-          System.err.println("ERROR: Could not relove XYZ Files of Side Chains!" + e.toString());
+          charge = Short.parseShort(Temp2);
+          spin = Short.parseShort(Temp3);
+        } catch (Exception e) {
+         System.err.println("Could not parese guests electronic information! "+e.toString());
+         System.exit(1);
+        }
+        config.Guest = new Guest(Temp, charge, spin);
+      } else if (CurrentLine.startsWith("SidesDir=")) {
+        String Temp = CurrentLine.substring(9).trim();
+        String Temp2 = Temp;
+        int NSides=0, NDirs=0;
+        ArrayList<String[]> SidesXYZFiles = new ArrayList();
+        ArrayList<String> Prefix = new ArrayList();
+        ArrayList<Short> charges=new ArrayList(), spins= new ArrayList();
+        try {
+          while (Temp.contains(":charge")) {
+            NDirs++;
+            Temp2 = Temp.substring(0,Temp.indexOf(":charge"));
+            Prefix.add(Temp2);
+            SidesXYZFiles.add(org.ogolem.io.InquiryPrimitives.fileListWithSuffix(".xyz", Temp2));
+            NSides+= SidesXYZFiles.getLast().length;
+            Temp2 = Temp.substring(Temp.indexOf(":charge=")+8,Temp.indexOf(":spin="));
+            charges.add(Short.parseShort(Temp2));
+            if (Temp.indexOf("," ) > 0) {
+              Temp2 = Temp.substring(Temp.indexOf(":spin=")+6,Temp.indexOf(","));
+              Temp = Temp.substring(Temp.indexOf(",")+1);
+            } else {
+              Temp2 = Temp.substring(Temp.indexOf(":spin=")+6).trim();
+              Temp="";
+            }
+            spins.add(Short.parseShort(Temp2));
+          };
+        } catch (IOException e1) {
+          System.err.println("ERROR: Could not resolve XYZ FIles in "+Temp2+" of Sidechains! "+e1.toString());
+          System.exit(1);
+        } catch (Exception e2) {
+          System.err.println("ERROR: Could not parse Sidechain input string "+Temp+"! "+e2.toString());
           System.exit(1);
         }
-        final int NSides = SidesXYZFiles.length;
         config.Sides = new Fragment[NSides];
-        for (int isides = 0; isides < NSides; isides++) {
-          config.Sides[isides] = new Fragment(Temp + SidesXYZFiles[isides], isides);
+        int istart = 0;
+        for (int iDir = 0; iDir < NDirs; iDir++) {
+          for (int isides = 0; isides < SidesXYZFiles.get(iDir).length; isides++) {
+            config.Sides[istart+isides] = new Fragment(Prefix.get(iDir) + SidesXYZFiles.get(iDir)[isides], isides+istart, charges.get(iDir), spins.get(iDir)); 
+          }
+          istart += SidesXYZFiles.get(iDir).length;
         }
       } else if (CurrentLine.startsWith("T=")) {
         final String Temp = CurrentLine.substring(2).trim();
@@ -227,32 +298,90 @@ public final class LigandInput {
     return config;
   }
 
-  static CartesianCoordinates readXYZMopacOutput(String sMopacOutput, int iNoOfAtoms, int iNoOfMolecules, int[] iaNoAtsPerMol) throws CastException, InitIOException {
+  static double[] readSPMopacOutput(String sMopacOutput,int iNoOfAtoms, CartesianCoordinates cartes)
+     throws CastException, InitIOException {
+
+     String[] saData;
+     try {
+       saData = readFileIn(sMopacOutput);
+     } catch (Exception e) {
+       throw new CastException("Error in reading mopac's Output file, ",e);
+     }
+
+     int iEnergyLine = -1;
+     int iGradLine = -1;
+     int iDipoleLine = -1;
+     int iChargeLine = -1;
+     double[] dDipole;
+
+     for (int iLine = 0; iLine < saData.length; iLine++) {
+        if (saData[iLine].contains("FINAL HEAT OF FORMATION")) {
+          iEnergyLine = iLine;
+        } else if (saData[iLine].contains("GRADIENT NORM")) {
+          iGradLine = iLine;
+        } else if (saData[iLine].contains("DIPOLE           X")) {
+          iDipoleLine = iLine + 3;
+        } else if (saData[iLine].contains("TYPE          CHARGE")) {
+          iChargeLine = iLine+1;
+        }
+        if (iChargeLine > 0 && iEnergyLine > 0 && iGradLine > 0 && iDipoleLine > 0) break;
+     }
+
+     try {
+       parseMopacCharges(saData, iChargeLine, iNoOfAtoms, cartes);
+       parseMopacEnergy(saData[iEnergyLine], cartes);
+       parseMopacGradient(saData[iGradLine], cartes);
+       dDipole = parseMopacDipole(saData[iDipoleLine]);
+     } catch (CastException e) {
+       throw e;
+     }
+    return dDipole;
+  }
+
+  static CartesianCoordinates readXYZMopacOutput(
+      String sMopacOutput,
+      int iNoOfAtoms,
+      int iNoOfMolecules,
+      int[] iaNoAtsPerMol,
+      double[] tmpDipole)
+      throws CastException, InitIOException {
     String[] saData;
     try {
       saData = readFileIn(sMopacOutput);
     } catch (Exception e) {
-      throw new InitIOException("Error in reading mopac's output file.",e);
+      throw new InitIOException("Error in reading mopac's output file.", e);
     }
-  
-    CartesianCoordinates cartesians = new CartesianCoordinates(iNoOfAtoms, iNoOfMolecules, iaNoAtsPerMol);
-    int iGeometryStart = 0;
+
+    //CartesianCoordinates cartesians =
+    //    new CartesianCoordinates(iNoOfAtoms, iNoOfMolecules, iaNoAtsPerMol);
+    int iGeometryStart = -1;
+    int iEnergyLine = -1;
+    int iGradLine = -1;
+    int iDipoleLine = -1;
+    int iChargeLine = -1;
     for (int i = 0; i < saData.length; i++) {
-      if (saData[i].contains("CARTESIAN COORDINATES")) {
-        iGeometryStart = i+2;
+      if (saData[i].contains("CARTESIAN COORDINATES") && !(saData[i + 2].contains("NO."))) {
+        iGeometryStart = i + 2;
+      } else if (saData[i].contains("FINAL HEAT OF FORMATION")) {
+        iEnergyLine = i;
+      } else if (saData[i].contains("GRADIENT NORM")) {
+        iGradLine = i;
+      } else if (saData[i].contains("DIPOLE           X")) {
+        iDipoleLine = i + 3;
+      } else if (saData[i].contains("TYPE          CHARGE")) {
+        iChargeLine = i+1;
       }
+      if (iChargeLine > 0 && iGeometryStart > 0 && iEnergyLine > 0 && iGradLine > 0 && iDipoleLine > 0) break;
     }
-  
+
     String sTemp;
     String sTemp2;
-    String sTempAtom;
+    CartesianCoordinates cartesians;
     double[] daTempCoord = new double[3];
-    if (saData[iGeometryStart].contains("NO.")) {
-      iGeometryStart += 2;
-    }
-    for (int i=iGeometryStart; i < iNoOfAtoms+iGeometryStart; i++) {
+    //String sTempAtom;
+    /*
+    for (int i = iGeometryStart; i < iNoOfAtoms + iGeometryStart; i++) {
       sTemp = saData[i];
-      System.err.println("sTemp: "+sTemp);
       sTemp = sTemp.trim();
       sTemp = sTemp.substring(sTemp.indexOf(" "));
       sTemp = sTemp.trim();
@@ -260,7 +389,7 @@ public final class LigandInput {
       cartesians.setAtom(sTempAtom, i - iGeometryStart);
       sTemp = sTemp.substring(sTemp.indexOf(" "));
       sTemp = sTemp.trim();
-  
+
       sTemp2 = sTemp.substring(0, sTemp.indexOf(" "));
       try {
         daTempCoord[0] = Double.parseDouble(sTemp2) * ANGTOBOHR;
@@ -268,60 +397,203 @@ public final class LigandInput {
         throw new CastException("Failure in mopac coordinate casting.", e);
       }
       sTemp = sTemp.substring(sTemp.indexOf(" "));
-  
+
       sTemp = sTemp.trim();
       sTemp2 = sTemp.substring(0, sTemp.indexOf(" "));
       try {
-          daTempCoord[1] = Double.parseDouble(sTemp2) * ANGTOBOHR;
+        daTempCoord[1] = Double.parseDouble(sTemp2) * ANGTOBOHR;
       } catch (Exception e) {
-          throw new CastException("Failure in mopac coordinate casting.", e);
+        throw new CastException("Failure in mopac coordinate casting.", e);
       }
       sTemp = sTemp.substring(sTemp.indexOf(" "));
-  
+
       sTemp2 = sTemp.trim();
       try {
         daTempCoord[2] = Double.parseDouble(sTemp2) * ANGTOBOHR;
       } catch (Exception e) {
-        throw new CastException("Falure in mopac coordinate casting",e);
+        throw new CastException("Falure in mopac coordinate casting", e);
       }
-  
-      cartesians.setXYZCoordinatesOfAtom(daTempCoord, i-iGeometryStart);
+
+      cartesians.setXYZCoordinatesOfAtom(daTempCoord, i - iGeometryStart);
     }
 
-    int iEnergyLine = 0;
-    for(int i = 0; i < saData.length; i++) {
-      if (saData[i].contains("FINAL HEAT OF FORMATION")){
+    for (int i = 0; i < saData.length; i++) {
+      if (saData[i].contains("FINAL HEAT OF FORMATION")) {
         iEnergyLine = i;
-        break;
+      } else if (saData[i].contains("GRADIENT NORM")) {
+        iGradLine = i;
+      } else if (saData[i].contains("DIPOLE           X")) {
+        iDipoleLine = i + 3;
       }
+      if (iGradLine > 0 && iEnergyLine > 0 && iDipoleLine > 0) break;
     }
 
+    */
+
+    /*
     sTemp = saData[iEnergyLine].trim();
-    sTemp = sTemp.substring(sTemp.indexOf("MOL =")+6, sTemp.indexOf("KJ/MOL")-1);
+    sTemp = sTemp.substring(sTemp.indexOf("MOL =") + 6, sTemp.indexOf("KJ/MOL") - 1);
     sTemp = sTemp.trim();
 
     double dEnergy = 0.0;
-    try{
+    try {
       dEnergy = Double.parseDouble(sTemp) * KJTOHARTREE;
     } catch (Exception e) {
       System.err.println("Problem casting the energy of mopac output.");
       throw new CastException(e);
     }
+    */
 
-    cartesians.setEnergy(dEnergy);
+    try {
+      cartesians = parseMopacXYZ(saData, iGeometryStart, iNoOfAtoms);
+      parseMopacCharges(saData, iChargeLine, iNoOfAtoms, cartesians);
+      parseMopacEnergy(saData[iEnergyLine], cartesians);
+      parseMopacGradient(saData[iGradLine], cartesians);
+      tmpDipole = parseMopacDipole(saData[iDipoleLine]);
+    } catch (CastException e) {
+      throw e;
+    }
+
+    /*
+    sTemp = saData[iGradLine].trim();
+    sTemp =
+        sTemp.substring(
+            sTemp.indexOf("NORM           =") + 16, sTemp.indexOf("NORM           =") + 43);
+    sTemp.trim();
+    double dGrad = 0.0;
+    try {
+      dGrad = Double.parseDouble(sTemp);
+    } catch (Exception e) {
+      System.err.println("Problem casting the gradient norm of mopac output.");
+      throw new CastException(e);
+    }
+    */
+
+    /*sTemp = saData[iDipoleLine].trim();
+    sTemp = sTemp.substring(sTemp.indexOf("SUM") + 3, sTemp.length()).trim();
+    try {
+      for (int iDir = 0; iDir < 3; iDir++) {
+        sTemp2 = sTemp.substring(0, sTemp.indexOf(" "));
+        daTempCoord[0] = Double.parseDouble(sTemp2);
+        sTemp = sTemp.substring(sTemp.indexOf(" ")).trim();
+      }
+    } catch (Exception e) {
+      System.err.println("Problem casting dipole of mopac output.");
+      throw new CastException(e);
+    }
+    */
+
+    //cartesians.setGradNorm(dGrad);
+    //cartesians.setEnergy(dEnergy);
     return cartesians;
   }
 
-  static void removeFile(final String sToFilePath) throws InitIOException {
-      final File f = new File(sToFilePath);
-      final boolean bSuccess = f.delete();
-      if(bSuccess == false){
-         throw new InitIOException("Couldn't remove file.");
+  static CartesianCoordinates parseMopacXYZ(String[] saData, int iStart ,int nAtoms) throws CastException {
+    int[] iaAtoms = new int[] {nAtoms};
+    CartesianCoordinates newCartes = new CartesianCoordinates(nAtoms,1, iaAtoms);
+    String sTempAtom, sTemp1, sTemp2;
+    double[] daTempCoord = new double[3];
+    for (int i = iStart; i < nAtoms + iStart; i++) {
+      sTemp1 = saData[i];
+      sTemp1 = sTemp1.trim();
+      sTemp1 = sTemp1.substring(sTemp1.indexOf(" "));
+      sTemp1 = sTemp1.trim();
+      sTempAtom = sTemp1.substring(0, sTemp1.indexOf(" "));
+      newCartes.setAtom(sTempAtom, i - iStart);
+      sTemp1 = sTemp1.substring(sTemp1.indexOf(" "));
+      sTemp1 = sTemp1.trim();
+
+      sTemp2 = sTemp1.substring(0, sTemp1.indexOf(" "));
+      try {
+        daTempCoord[0] = Double.parseDouble(sTemp2) * ANGTOBOHR;
+      } catch (Exception e) {
+        throw new CastException("Failure in mopac coordinate casting.", e);
       }
+      sTemp1 = sTemp1.substring(sTemp1.indexOf(" "));
+
+      sTemp1 = sTemp1.trim();
+      sTemp2 = sTemp1.substring(0, sTemp1.indexOf(" "));
+      try {
+        daTempCoord[1] = Double.parseDouble(sTemp2) * ANGTOBOHR;
+      } catch (Exception e) {
+        throw new CastException("Failure in mopac coordinate casting.", e);
+      }
+      sTemp1 = sTemp1.substring(sTemp1.indexOf(" "));
+
+      sTemp2 = sTemp1.trim();
+      try {
+        daTempCoord[2] = Double.parseDouble(sTemp2) * ANGTOBOHR;
+      } catch (Exception e) {
+        throw new CastException("Falure in mopac coordinate casting", e);
+      }
+
+      newCartes.setXYZCoordinatesOfAtom(daTempCoord, i - iStart);
+    }
+    return newCartes;
   }
-  
+
+  static void parseMopacCharges(String[] saData, int iStart, int nAtoms, CartesianCoordinates cartes) throws CastException {
+    String sTempLine, sTempNumber;
+    String[] splitLine;
+    float fTempCharge;
+    int iTempIdx;
+    for (int iAtom = iStart; iAtom < iStart+nAtoms; iAtom++) {
+      sTempLine = saData[iAtom].trim();
+      splitLine = sTempLine.split("\\s+");
+      try {
+        fTempCharge = Float.parseFloat(splitLine[2]);
+        cartes.setChargeAtAtom(fTempCharge, iAtom - iStart);
+      } catch (Exception e){
+        throw new CastException("Falue in mopac charge csting.", e);
+      }
+    }
+  }
+
+  static void parseMopacEnergy(String sLine, CartesianCoordinates cartes) throws CastException {
+    String[] splitLine = sLine.trim().split("\\s");
+    double dEnergy = 0.0;
+    try {
+      dEnergy = Double.parseDouble(splitLine[8])* KJTOHARTREE;
+      cartes.setEnergy(dEnergy);
+    } catch (Exception e) {
+      throw new CastException("Unable to Parse Heat of Formation.", e);
+    }
+  }
+
+  static void parseMopacGradient(String sLine, CartesianCoordinates cartes) throws CastException {
+    String[] splitLine = sLine.trim().split("\\s");
+    double dGradNorm = 0.0;
+    try {
+      dGradNorm = Double.parseDouble(splitLine[4]);
+      cartes.setGradNorm(dGradNorm);
+    } catch (Exception e) {
+      throw new CastException("Unable to Parse Gradient Norm.", e);
+    }
+  }
+
+  static double[] parseMopacDipole(String sLine) throws CastException {
+    String[] splitLine = sLine.trim().split("\\s");
+    double[] adDipole = new double[3];;
+    try {
+      for (int iDir = 0; iDir < 3; iDir++) {
+        adDipole[iDir] = Double.parseDouble(splitLine[1+iDir]);
+      }
+    } catch (Exception e) {
+      throw new CastException("Unable to Parse Dipole.", e);
+    }
+    return adDipole;
+  }
+
+  static void removeFile(final String sToFilePath) throws InitIOException {
+    final File f = new File(sToFilePath);
+    final boolean bSuccess = f.delete();
+    if (bSuccess == false) {
+      throw new InitIOException("Couldn't remove file.");
+    }
+  }
+
   // Copyied from SwitchesInput. THIS SHOULD BE DEEPER IN THE CORE LIBARY!!
   static String[] readFileIn(final String sInputPath) throws IOException {
     return org.ogolem.io.InputPrimitives.readFileIn(sInputPath);
   }
-  }
+}

@@ -67,7 +67,16 @@ final class TinkerLocOpt implements LocalOptimization {
   }
 
   @Override
-  public CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int iID) {
+  public boolean doSinglePoint(final CartesianCoordinates startCartes, final int iID, Ligand lig) {
+    // TODO since this is not working
+    if (true) {
+      System.err.println("THIS IS NOT WORKING (TINKER Single Point)");
+    }
+    return false;
+  }
+
+  @Override
+  public CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int iID, Ligand lig) {
     // TODO since this is not working
     if (true) {
       System.err.println("THIS IS NOT WORKING (TINKER LCOOPT)");

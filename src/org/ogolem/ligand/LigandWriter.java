@@ -63,13 +63,12 @@ public class LigandWriter implements IndividualWriter<Ligand> {
       final String[] compXYZString = lig.getPrintableComplex();
       final String[] XYZString = new String[ligXYZString.length + compXYZString.length];
       System.arraycopy(ligXYZString, 0, XYZString, 0, ligXYZString.length);
-      System.arraycopy(compXYZString, 0, XYZString, ligXYZString.length+1, compXYZString.length);
+      System.arraycopy(compXYZString, 0, XYZString, ligXYZString.length + 1, compXYZString.length);
       final String path = LigandConfig.OutputFolder;
       final String sep = System.getProperty("file.separator");
-      Output.printMiscToFile(path+sep+"ligand"+lig.getID()+".lig", XYZString);
+      Output.printMiscToFile(path + sep + "ligand" + lig.getID() + ".lig", XYZString);
     } catch (Exception e) {
-      System.err.println(
-          "WARNING: Couldn't write ligand " + lig.getID() + ".lig " + e.toString());
+      System.err.println("WARNING: Couldn't write ligand " + lig.getID() + ".lig " + e.toString());
     }
   }
 
@@ -80,7 +79,7 @@ public class LigandWriter implements IndividualWriter<Ligand> {
       final String[] compXYZString = lig.getPrintableComplex();
       final String[] XYZString = new String[ligXYZString.length + compXYZString.length];
       System.arraycopy(ligXYZString, 0, XYZString, 0, ligXYZString.length);
-      System.arraycopy(compXYZString, 0, XYZString, ligXYZString.length+1, compXYZString.length);
+      System.arraycopy(compXYZString, 0, XYZString, ligXYZString.length + 1, compXYZString.length);
       final String path = LigandConfig.OutputFolder;
       final String sep = System.getProperty("file.separator");
       Output.printMiscToFile(targetFile, XYZString);

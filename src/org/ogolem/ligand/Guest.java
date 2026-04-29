@@ -61,12 +61,12 @@ public class Guest implements Serializable {
       myCartes = org.ogolem.core.Input.readCartesFromFile(XYZFile);
     } catch (InitIOException e1) {
       System.err.println(
-          "ERROR: opening XYZ File of the guest did not work as expected. Aborting! "
+          "ERROR: opening XYZ File of the guest did not work as expected. Aborting! \n"
               + e1.toString());
       System.exit(112);
     } catch (CastException e2) {
       System.err.println(
-          "ERROR: Could not cast the guest to CartesianCoordinates Object. Aborting! "
+          "ERROR: Could not cast the guest to CartesianCoordinates Object. Aborting! \n"
               + e2.toString());
       System.exit(111);
     }
@@ -94,7 +94,7 @@ public class Guest implements Serializable {
     }
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();
-    charge = 1;
+    charge = 0;
     spin = 1;
     RefEnergy = Double.NaN; // Placeholder
   }
@@ -111,6 +111,19 @@ public class Guest implements Serializable {
     this.spin = Spin;
     this.RefEnergy = Coords.getEnergy();
     this.Cartes = Coords.copy();
+  }
+
+  public double getRMSDToComplex(CartesianCoordinates coordsComplex) {
+    double res = 0.0, tmp;
+    int nAtomsGuest = this.Cartes.getNoOfAtoms(), nAtomsComplex = coordsComplex.getNoOfAtoms();
+    double[] posGuest, posComplex;
+    for (int iAtom = 0; iAtom > nAtomsGuest; iAtom++) {
+      posGuest = this.Cartes.getXYZCoordinatesOfAtom(iAtom);
+      posComplex = coordsComplex.getXYZCoordinatesOfAtom(nAtomsComplex - nAtomsGuest + iAtom);
+      tmp = org.ogolem.ligand.VectorUtils.distance(posGuest, posComplex);
+      res += tmp * tmp;
+    }
+    return Math.sqrt(res / nAtomsGuest);
   }
 
   public Guest copy() {
@@ -131,6 +144,13 @@ public class Guest implements Serializable {
 
   public CartesianCoordinates getCartesianCoordinates() {
     return this.Cartes.copy();
+  }
+
+  public void setCartesianCoordinates(CartesianCoordinates newCartes) {
+    this.Cartes.setAllSpins(newCartes.getAllSpins());
+    this.Cartes.setAllCharges(newCartes.getAllCharges());
+    this.Cartes.setAllXYZAsCopy(newCartes.getAllXYZCoord());
+    this.Cartes.setEnergy(newCartes.getEnergy());
   }
 
   public void printXYZ(final String File) {

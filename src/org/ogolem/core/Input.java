@@ -2509,7 +2509,7 @@ public final class Input {
       final String[] saFileContent = InputPrimitives.readFileIn(sFile);
       return saFileContent;
     } catch (Exception e) {
-      throw new InitIOException("Couldn't read file " + sFile, e);
+      throw new InitIOException("Couldn't read file " + sFile + ". " + e.toString(), e);
     }
   }
 

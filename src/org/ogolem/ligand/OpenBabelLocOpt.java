@@ -76,8 +76,14 @@ final class OpenBabelLocOpt implements LocalOptimization {
     this.dBlowBonds = lConf.dBlowBondsFac;
   }
 
+  @Override 
+  public boolean doSinglePoint(final CartesianCoordinates cartes, final int iID, Ligand lig) {
+    System.err.println("Single Point for openbabel is not supported!");
+    return false;
+  }
+
   @Override
-  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartes, final int iID) {
+  public CartesianCoordinates doLocOpt(final CartesianCoordinates cartes, final int iID, Ligand lig) {
 
     final String sGeometryFile = "openbabel"+iID+".mdl";
 

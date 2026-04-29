@@ -69,6 +69,10 @@ public final class LigandConfig implements Serializable {
   public boolean bMoreMutation = false;
   String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
+  public static double dDipolePen = 100;
+  public static double dBindPen = 100;
+  public static double dGradPen = 1000;
+
   // Excatly copyied from SwitchesConfig.java. Would be better not to have this code two times!!!
   static int pareseIntLocOptFromString(final String sLocOpt) {
     if (sLocOpt.startsWith("tinker:")) {
@@ -145,7 +149,7 @@ public final class LigandConfig implements Serializable {
         diver =
             new GenericDiversityCheckers.FitnessDiversityChecker<>(LigandConfig.FitnessDiversity);
         break;
-        // TODO more!!!
+      // TODO more!!!
       default:
         diver =
             new GenericDiversityCheckers.FitnessDiversityChecker<>(LigandConfig.FitnessDiversity);

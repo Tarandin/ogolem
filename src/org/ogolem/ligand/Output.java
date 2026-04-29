@@ -210,7 +210,6 @@ final class Output {
                   + form.format(daXYZ[2][i] * BOHRTOANG)
                   + " 1 ";
         }
-
         // THIS IS IMPORTANT! DO NOT REMOVE
         saInput[saInput.length -1] = "";
 
@@ -229,7 +228,8 @@ final class Output {
          final String[] saAtoms,
          final int iTotalCharge,
          final int iTotalSpin,
-         final int iNoOfCycles)
+         final int iNoOfCycles,
+         final boolean justSP)
          throws InitIOException {
 
        String sSpin;
@@ -271,16 +271,18 @@ final class Output {
 
        final int iNoOfAtoms = saAtoms.length;
        final String[] saOutput = new String[iNoOfAtoms + 3];
-       
-       saOutput[0] =
-           "XYZ NOLOG GEO-OK T=100H XYZCYCLES="
-               + iNoOfCycles
-               + " "
-               + sMopacMethod
+
+       if (justSP) {
+         saOutput[0] = "XYZ NOLOG T=100H ";
+       } else {
+         saOutput[0] = "XYZ NOLOG GEO-OK T=100H XYZCYCLES=" + iNoOfCycles + " ";
+       }
+       saOutput[0] +=  sMopacMethod
                + " charge="
                + iTotalCharge
                + " "
-               + sSpin;
+               + sSpin
+               + " GRADIENTS";
       saOutput[1] = "CREATED BY OGOLEM";
 
       saOutput[2] = "";

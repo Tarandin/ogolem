@@ -39,9 +39,11 @@ package org.ogolem.ligand;
 
 public final class FixedValues {
 
-  private FixedValues(){};
+  private FixedValues() {}
+  ;
 
   public static final double BADENERGY = 3000.0;
   public static final double KNOWNFITNESS = 2000.0;
   public static final double UNBOUND = 1000.0;
+  public static final double BADANGLE = 1000.0;
 }

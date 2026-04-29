@@ -41,5 +41,6 @@ import org.ogolem.core.CartesianCoordinates;
 
 interface LocalOptimization {
 
-  CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int id);
+  CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int id, Ligand Lig);
+  boolean doSinglePoint(final CartesianCoordinates cartes, final int id, Ligand Lig);
 }

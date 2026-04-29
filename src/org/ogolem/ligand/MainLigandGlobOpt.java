@@ -63,7 +63,6 @@ public class MainLigandGlobOpt {
       System.out.println(" * the number of threads to be used");
     }
     int noThreads = 0;
-    System.out.println("Hallo World!\n Here am I!");
     // Is the program called the way it is intended?
     if (args.length < 1) {
       System.err.println(
@@ -146,13 +145,17 @@ public class MainLigandGlobOpt {
       }
     }
 
+    ThreadingInits ThreadInt = new ThreadingInits(lconf, noThreads);
+    ThreadInt.initializeFragments();
+
     final Ligand refLigand = new Ligand(lconf);
     if (lconf.Debug) {
       refLigand.printLigand("DebugRefLigand.xyz");
     }
 
     final GenericPool<Double, Ligand> pool = new GenericPool<>(lconf.getGenericConfig(), refLigand);
-    ThreadingInits ThreadInt = new ThreadingInits(lconf, noThreads, pool);
+    ThreadInt.setPool(pool);
+    //ThreadingInits ThreadInt = new ThreadingInits(lconf, noThreads, pool);
     ThreadInt.fillInitialPool();
     if (lconf.Debug) {
       try {
@@ -176,13 +179,11 @@ public class MainLigandGlobOpt {
     }
     for (int i = 0; i < lconf.PoolSize; i++) {
       final Ligand lig = pool.getIndividualAtPosition(i);
-      final String[] saLigand = lig.getPrintableLigand();
-      final String[] saComplex = lig.getPrintableComplex();
 
-      final String sFileLig = "FinPool/rank"+i+"lig"+lig.getID()+".xyz";
+      final String sFileLig = "FinPool/rank";
 
       try {
-        Output.printMiscToFile(sFileLig, saLigand, saComplex);
+         lig.printOptimizedIndividual(sFileLig, i);
       } catch (Exception e) {
         System.err.println("ERROR: Failes to serialize the final pool! "+e.toString());
       }
