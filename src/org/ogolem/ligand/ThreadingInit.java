@@ -47,13 +47,13 @@ import org.ogolem.generic.genericpool.GenericPool;
 final class ThreadingInits {
 
   private final LigandConfig lConf;
-  private GenericPool<Double, Ligand> pool;
+  private GenericPool<Fragment, Ligand> pool;
   private final int iNoOfThreads;
 
   ThreadingInits(
       final LigandConfig ligandConf,
       final int iNumberofThreads,
-      final GenericPool<Double, Ligand> pool) {
+      final GenericPool<Fragment, Ligand> pool) {
     this.iNoOfThreads = iNumberofThreads;
     this.lConf = ligandConf;
     this.pool = pool;
@@ -66,7 +66,7 @@ final class ThreadingInits {
     this.lConf = ligandConf;
   }
 
-  void setPool(GenericPool<Double, Ligand> pool) {
+  void setPool(GenericPool<Fragment, Ligand> pool) {
     this.pool = pool;
   }
 
@@ -74,7 +74,7 @@ final class ThreadingInits {
     final ExecutorService threadpool = Executors.newFixedThreadPool(iNoOfThreads);
     threadpool.submit(createGuestTask(lConf));
     threadpool.submit(createBackboneTask(lConf));
-    for (int i = 0; i < this.lConf.Sides.length; i++) {
+    for (int i = 2; i < this.lConf.Sides.length+2; i++) {
       threadpool.submit(createFragListTask(i, lConf));
     }
     threadpool.shutdown();
@@ -112,15 +112,16 @@ final class ThreadingInits {
     return () -> {
       final Ligand lLigand = new Ligand(refLigand);
       lLigand.setID(i);
-      lLigand.setFatherID(-1);
-      lLigand.setMotherID(-1);
+      lLigand.setFatherID(i);
+      lLigand.setMotherID(i);
       lLigand.randomizeSides(lConf);
 
       final FitnessFunction fitness = new FitnessFunction(lConf);
       final double dFit = fitness.fitnessLigand(lLigand);
       lLigand.setFitness(dFit);
 
-      pool.addIndividualForced(lLigand, lLigand.getFitness());
+      System.out.println("Add Ligand" + i + " to pool with Fitness " + dFit);
+      pool.addIndividualForced(lLigand, dFit);
       taboos.addTaboo(lLigand);
     };
   }
@@ -131,28 +132,35 @@ final class ThreadingInits {
 
       return () -> {
         final LocOpt locOpt = new LocOpt(lConf);
-        CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Sides[index].getCartesWithH(), index, null);
+        CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Sides[index].getCartesWithH(), index + 405, null);
         if (newCartes != null) lConf.Sides[index].setCartesWithXC(newCartes);
+        lConf.Sides[index].buildBondInfo(lConf.dBlowBondsFac);
       };
   }
 
   private static Runnable createBackboneTask(LigandConfig lConf) {
     return () -> {
       final LocOpt locOpt = new LocOpt(lConf);
-      CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Back.getCartesWithH(), -1, null);
+      CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Back.getCartesWithH(), 405, null);
       if (newCartes != null) {
          lConf.Back.setCartesWithXC(newCartes);
       } else {
         System.err.println("Could not optimize the bare Backbone! This is not a good start!");
       }
+      lConf.Back.buildBondInfo(lConf.dBlowBondsFac);
     };
   }
 
   private static Runnable createGuestTask(LigandConfig lConf) {
     return () -> {
       final LocOpt locOpt = new LocOpt(lConf);
-      boolean converged = locOpt.doSinglePoint(lConf.Guest.getCartesianCoordinates(), -2, null);
-      if (!converged) System.err.println("Warning! Given Guest is not stable on its own!");
+      CartesianCoordinates newCartes = lConf.Guest.getCartesianCoordinates();
+      newCartes.setChargeAtAtom(lConf.Guest.getCharge(), 0);
+      boolean converged = locOpt.doSinglePoint(newCartes, 404, null);
+      if (!converged) System.err.println("Warning! Given Guest did not converge on its own! This is very Bad!");
+      lConf.Guest.setRefEnergy(newCartes.getEnergy());
+      lConf.Guest.setAllCharges(newCartes.getAllCharges());
+      lConf.Guest.buildEField(lConf.GOCAT);
     };
   }
 }

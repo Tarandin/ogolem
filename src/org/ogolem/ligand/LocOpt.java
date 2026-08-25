@@ -67,27 +67,30 @@ final class LocOpt implements LocalOptimization {
         locopt = new OpenBabelLocOpt(lConf.WhichLocAlgo - 100, lConf);
         break;
       case 200:
-        locopt = new MopacLocOpt(0, lConf.iMaxIterLocOpt);
+        locopt = new MopacLocOpt(0, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
       case 201:
-        locopt = new MopacLocOpt(1, lConf.iMaxIterLocOpt);
+        locopt = new MopacLocOpt(1, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
       case 202:
-        locopt = new MopacLocOpt(2, lConf.iMaxIterLocOpt);
+        locopt = new MopacLocOpt(2, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
       case 203:
-        locopt = new MopacLocOpt(3, lConf.iMaxIterLocOpt);
+        locopt = new MopacLocOpt(3, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
       case 204:
-        locopt = new MopacLocOpt(4, lConf.iMaxIterLocOpt);
+        locopt = new MopacLocOpt(4, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
       case 205:
-         locopt = new MopacLocOpt(5, lConf.iMaxIterLocOpt);
+         locopt = new MopacLocOpt(5, lConf.iMaxIterLocOpt, lConf.bConstraints);
+         break;
+      case 206:
+         locopt = new MopacLocOpt(6, lConf.iMaxIterLocOpt, lConf.bConstraints);
          break;
       default:
         System.err.println("WARNING: No choice " + lConf.WhichLocAlgo +
                 " available for the local optimization. Using mopac now.");
-        locopt = new MopacLocOpt(0, lConf.MaxIterLocOpt);
+        locopt = new MopacLocOpt(0, lConf.MaxIterLocOpt, lConf.bConstraints);
     }
   }
 

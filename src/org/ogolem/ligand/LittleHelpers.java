@@ -86,4 +86,13 @@ final class LittleHelpers {
 
         return (Math.abs(dDihedral - dOptimalValue) <= dAllowDiff);
     }
+
+    static String fixedLength(String input, int length) {
+      String res = input;
+      if (length < input.length()) return input;
+      for (int i = input.length(); i < length; i++) {
+        res = " " + res;
+      }
+      return res;
+    }
 }

@@ -37,60 +37,51 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
-import java.util.Random;
+import org.ogolem.core.CastException;
 
-final class GlobOptAtomics {
+public class PointCharge {
+  private static final long serialVersionUID = (long) 20300008;
+  private final double[] dPosition;
+  private final double dCharge;
 
-  static int[][] genotypeCross(final int[] iMother, final int[] iFather) {
-
-    final Random random = new Random();
-    final int iLength = iMother.length;
-
-    final int[] iChildOne = new int[iLength];
-    final int[] iChildTwo = new int[iLength];
-
-    final int iCrossPos = random.nextInt(iLength);
-
-    System.arraycopy(iFather, 0, iChildOne, 0, iCrossPos);
-    System.arraycopy(iMother, 0, iChildTwo, 0, iCrossPos);
-
-    System.arraycopy(iFather, iCrossPos, iChildOne, iCrossPos, iLength - iCrossPos);
-    System.arraycopy(iMother, iCrossPos, iChildTwo, iCrossPos, iLength - iCrossPos);
-
-    final int[][] iResult = new int[2][iLength];
-    System.arraycopy(iChildOne, 0, iResult[0], 0, iLength);
-    System.arraycopy(iChildTwo, 0, iResult[1], 0, iLength);
-
-    return iResult;
+  public PointCharge(double[] pos, double charge) {
+    assert(pos.length == 3);
+    this.dPosition = pos.clone();
+    this.dCharge = charge;
   }
 
-  static int[] genotypeMutation(final int[] iStart, final boolean bMoreMutation) {
-
-    final Random random = new Random();
-
-    int iRandom = random.nextInt(20);
-
-    if (iRandom == 1 || bMoreMutation) {
-
-      final int iEnd[] = new int[iStart.length];
-
-      System.arraycopy(iStart, 0, iEnd, 0, iStart.length);
-
-      int iPosition = random.nextInt(iEnd.length);
-
-      if (!bMoreMutation) {
-        final int iRandFragID = random.nextInt(iEnd.length);
-        iEnd[iPosition] = iRandFragID;
-      } else {
-        for (int ipos = iPosition; ipos < iEnd.length; ipos++) {
-          final int iRandFragID = random.nextInt(iEnd.length);
-          iEnd[ipos] = iRandFragID;
-        }
-      }
-
-      return iEnd;
-    } else {
-      return iStart;
+  public PointCharge(String sChargeLine) throws CastException {
+    this.dPosition = new double[3];
+    String sTemp = sChargeLine.trim();
+    assert(sTemp.startsWith("Ch"));
+    String[] saTemp = sTemp.split("\\s+");
+    try {
+      this.dPosition[0] = Double.parseDouble(saTemp[1]);
+      this.dPosition[1] = Double.parseDouble(saTemp[2]);
+      this.dPosition[2] = Double.parseDouble(saTemp[3]);
+      this.dCharge = Double.parseDouble(saTemp[4]);
+    } catch (Exception e) {
+      System.err.println("Unable to parse Pointcharge.!");
+      throw new CastException("Unable to parse Pointcharge.! ",e);
     }
+  }
+
+  public double getCharge() {
+    return this.dCharge;
+  }
+
+  public double[] getField(double[] dPos) {
+    double dR = org.ogolem.ligand.VectorUtils.distance(dPos, this.dPosition);
+    double dFieldStrength =  this.dCharge / (dR * dR);
+    double[] dFieldVec = org.ogolem.ligand.VectorUtils.connectVec(this.dPosition, dPos);
+    org.ogolem.ligand.VectorUtils.normVec(dFieldVec);
+    org.ogolem.ligand.VectorUtils.scaleVec(dFieldVec, dFieldStrength);
+    return dFieldVec;
+  }
+
+  public double[] getDipoleContribution() {
+    double[] dDipolePart = this.dPosition.clone();
+    org.ogolem.ligand.VectorUtils.scaleVec(dDipolePart, this.dCharge);
+    return dDipolePart;
   }
 }

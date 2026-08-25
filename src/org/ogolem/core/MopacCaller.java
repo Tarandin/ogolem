@@ -41,6 +41,7 @@ package org.ogolem.core;
 import static org.ogolem.core.Constants.ANGTOBOHR;
 import static org.ogolem.core.Constants.BOHRTOANG;
 import static org.ogolem.core.Constants.EVTOHARTREE;
+import static org.ogolem.core.Constants.KCALTOHARTREE;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -321,9 +322,13 @@ final class MopacCaller extends AbstractLocOpt {
 
     // get the line of the energy
     int iEnergyLine = 0;
+    boolean bKCALMOL = false;
     for (int i = 0; i < saData.length; i++) {
       if (saData[i].contains("TOTAL ENERGY")) {
         iEnergyLine = i;
+      } else if (saData[i].contains("FINAL HEAT OF FORMATION")) {
+        iEnergyLine = i;
+        bKCALMOL = true;
       }
     }
 
@@ -333,7 +338,11 @@ final class MopacCaller extends AbstractLocOpt {
     final String[] tmp2 = tmp.split("\\s+");
     double energy = 0.0;
     try {
-      energy = Double.parseDouble(tmp2[0]) * EVTOHARTREE;
+      if (bKCALMOL) {
+        energy = Double.parseDouble(tmp2[0]) * KCALTOHARTREE;
+      } else { 
+        energy = Double.parseDouble(tmp2[0]) * EVTOHARTREE;
+      }
     } catch (Exception e) {
       System.err.println("Problems casting the energy of the mopac output.");
       throw new CastException(e);

@@ -41,7 +41,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.core.CastException;
+import org.ogolem.core.CoordTranslation;
 import org.ogolem.core.InitIOException;
+import org.ogolem.core.SimpleBondInfo;
 
 /*
  * The backbone of the ligand will be stored within this structure
@@ -62,6 +64,7 @@ public final class Fragment implements Serializable {
   private final short spin;
   private final int NumXCPositions;
   private final int FragID;
+  private SimpleBondInfo sbiFrag = null;
 
   public Fragment(final Fragment source) {
     this.Cartes = source.getCartes();
@@ -73,6 +76,7 @@ public final class Fragment implements Serializable {
     this.spin = source.spin;
     this.NumXCPositions = source.NumXCPositions;
     this.FragID = source.getID();
+    this.sbiFrag = source.getBondInfo();
   }
 
   public Fragment(final Fragment source, final Fragment Backbone, int iSide) {
@@ -98,6 +102,7 @@ public final class Fragment implements Serializable {
     this.spin = source.spin;
     this.NumXCPositions = source.NumXCPositions;
     this.FragID = source.getID();
+    this.sbiFrag = source.getBondInfo();
   }
 
   public Fragment(final String XYZFile, int ID, final short myspin, final short mycharge) {
@@ -117,7 +122,9 @@ public final class Fragment implements Serializable {
     }
     this.Cartes = new CartesianCoordinates(myCartes);
     this.charge = mycharge;
+    this.Cartes.setChargeAtAtom(this.charge, 0); //To get the correct charge at initialization
     this.spin = myspin;
+    this.Cartes.setSpinAtAtom(this.spin, 0); // To get the corrext spin at initialization
     this.CenterOfMass = new double[3];
     this.Cartes.calculateTheCOM(this.CenterOfMass);
     this.Cartes.moveCoordsToCOM();
@@ -159,7 +166,7 @@ public final class Fragment implements Serializable {
   }
 
   public void sortXCtoEnd() {
-    for (int ixc = 0; ixc < this.NumXCPositions; ixc++) {
+    for (int ixc = this.NumXCPositions -1; ixc >= 0; ixc--) {
       if (this.XCPositions[ixc] == this.getNumOfAtoms() + ixc) continue;
       this.Cartes.swapAtoms(this.XCPositions[ixc], this.getNumOfAtoms() + ixc);
       this.XCPositions[ixc] = this.getNumOfAtoms() + ixc;
@@ -175,23 +182,24 @@ public final class Fragment implements Serializable {
     for (int iXC : this.XCPositions) {
       newCartes.setAtomType(iXC, "H");
     }
+    newCartes.setChargeAtAtom((float) this.charge, 0);
     return newCartes;
   }
 
   public void setCartes(CartesianCoordinates newCartes) {
     this.Cartes.setAllSpins(newCartes.getAllSpins());
-    this.Cartes.setAllCharges(newCartes.getAllCharges());
+    this.setCharge(newCartes.getAllCharges());
     this.Cartes.setAllXYZAsCopy(newCartes.getAllXYZCoord());
     this.Cartes.setEnergy(newCartes.getEnergy());
   }
 
   public void setCartesWithXC(CartesianCoordinates newCartes) {
     this.Cartes.setAllSpins(newCartes.getAllSpins());
-    this.Cartes.setAllCharges(newCartes.getAllCharges());
+    this.setCharge(newCartes.getAllCharges());
     this.Cartes.setAllXYZAsCopy(newCartes.getAllXYZCoord());
     this.Cartes.setEnergy(newCartes.getEnergy());
     for (int iXC : this.XCPositions) {
-      this.Cartes.setAtomType(iXC, "Xx");
+      this.Cartes.setAtomType(iXC, "XX");
     }
   }
 
@@ -249,8 +257,16 @@ public final class Fragment implements Serializable {
     return this.NumXCPositions;
   }
 
-  public short getCharge() {
-    return this.charge;
+  public int getBoundIdx(int iXC) {
+    return this.BoundToXC[iXC];
+  }
+
+  public int getCharge() {
+    return this.Cartes.getTotalCharge();
+  }
+
+  public void setCharge(float[] allCharges) {
+    this.Cartes.setAllCharges(allCharges);
   }
 
   public short getSpin() {
@@ -259,6 +275,13 @@ public final class Fragment implements Serializable {
 
   public int getNumOfAtoms() {
     return this.Cartes.getNoOfAtoms() - this.getNumXCPos();
+  }
+
+  public String[] getAtomTypes() {
+    String[] sTypes = this.Cartes.getAllAtomTypes();
+    String[] res = new String[this.getNumOfAtoms()];
+    System.arraycopy(sTypes, 0, res, 0, this.getNumOfAtoms());
+    return res;
   }
 
   public double[][] copyXCBindVector() {
@@ -312,5 +335,92 @@ public final class Fragment implements Serializable {
       }
     }
     return BoundList;
+  }
+
+  public float[] getCharges() {
+    int nAtoms = this.getNoOfAtoms();
+    float[] resCharges = new float[this.getNoOfAtoms()];
+    float[] allCharges = this.Cartes.getAllCharges();
+    System.arraycopy(allCharges, 0, resCharges, 0, nAtoms);
+    for (int iXC = 0; iXC < this.NumXCPositions; iXC++) {
+      resCharges[this.BoundToXC[iXC]] += allCharges[nAtoms+iXC];
+    }
+    return resCharges;
+  }
+
+  public String getPrintableCharges() {
+    String res = " \t";
+    float[] tmpChar = this.Cartes.getAllCharges();
+    for (int iAtom = 0; iAtom < this.Cartes.getNoOfAtoms(); iAtom++) {
+      if (iAtom % 10 == 0 && iAtom > 0) res += "\n \t";
+      res += org.ogolem.ligand.LittleHelpers.fixedLength(" " + tmpChar[iAtom], 8);
+    }
+    return res + "\n";
+  }
+
+  public int getNoOfAtoms() {
+    return this.Cartes.getNoOfAtoms() - this.NumXCPositions;
+  }
+
+  public void buildBondInfo(double dBlowBonds) {
+    this.sbiFrag = org.ogolem.core.CoordTranslation.checkForBonds(this.Cartes, dBlowBonds);
+  }
+
+  public SimpleBondInfo getBondInfo() {
+    if (this.sbiFrag == null) this.buildBondInfo(1.2);
+    return this.sbiFrag.copy();
+  }
+
+  public SimpleBondInfo getBondInfo(double dBlowBonds) {
+    if (this.sbiFrag == null) this.buildBondInfo(dBlowBonds);
+    return this.sbiFrag.copy();
+  }
+
+  public void printSBI(String sFile) {
+    String[] saData = new String[this.getNoOfAtoms() + 1];
+    if (this.sbiFrag == null) buildBondInfo(1.2);
+    saData[0] = " " + this.getNoOfAtoms();
+    for (int iAtom = 0; iAtom < this.getNoOfAtoms(); iAtom++) {
+      saData[iAtom + 1] = "";
+      for (int jAtom = 0; jAtom < iAtom; jAtom++) {
+        if (this.sbiFrag.hasBond(jAtom, iAtom)) {
+          saData[iAtom + 1] += "1";
+        } else {
+          saData[iAtom + 1] += "0";
+        }
+      }
+      saData[iAtom + 1] += "0";
+    }
+    try {
+      Output.printMiscToFile(sFile, saData);
+    } catch (Exception e) {
+      System.err.println("Could not print Bond info of Fragment" + this.getID() + "!");
+    }
+  }
+
+  public void rotate(int iAngle, int iXC) {
+    double[][] rot = new double[3][3];
+    double[][] allXYZold, allXYZnew;
+    double[] axis = this.getXCBindVec(iXC);
+    org.ogolem.ligand.VectorUtils.normVec(axis); 
+    double[] xcPos = this.getBoundXYZ(iXC);
+    double dCos = Math.cos((2 * Math.PI) / 360 * iAngle);
+    double dSin = Math.sin((2 * Math.PI) / 360 * iAngle);
+    double sgn = -1;
+    double dOmC = 1 - dCos; // 1-cos
+    for (int iDir = 0; iDir < 3; iDir++) {
+      rot[iDir][iDir] =  axis[iDir] * axis[iDir] * dOmC + dCos;
+      for (int jDir = iDir + 1; jDir < 3; jDir++) {
+        rot[iDir][jDir] = axis[iDir] * axis[jDir] * dOmC + sgn * axis[2 * (iDir + jDir) % 3] * dSin;
+        rot[jDir][iDir] = rot[iDir][jDir] - 2 * sgn * axis[2 * (iDir + jDir) % 3] * dSin;
+        sgn = sgn * -1;
+      }
+    }
+    this.Cartes.moveCoordsFromPoint(xcPos);
+    allXYZold = this.Cartes.getAllXYZCoord();
+    allXYZnew = new double[3][this.Cartes.getNoOfAtoms()];
+    org.ogolem.math.TrivialLinearAlgebra.matMult(rot, allXYZold, allXYZnew);
+    this.Cartes.setAllXYZ(allXYZnew);
+    this.Cartes.moveCoordsToPoint(xcPos);
   }
 }

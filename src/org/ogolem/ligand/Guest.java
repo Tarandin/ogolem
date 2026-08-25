@@ -49,11 +49,13 @@ import org.ogolem.core.InitIOException;
  */
 
 public class Guest implements Serializable {
-  private static final long serialVeersionUID = (long) 20300005;
+  private static final long serialVersionUID = (long) 20300005;
   private final CartesianCoordinates Cartes;
   private final short charge;
   private final short spin;
+  private double[][] dEField;
   private double RefEnergy;
+  private double[] dimeter;
 
   public Guest(final String XYZFile, final short mycharge, final short myspin) {
     CartesianCoordinates myCartes = null;
@@ -72,9 +74,12 @@ public class Guest implements Serializable {
     }
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();
+    Cartes.setChargeAtAtom((float) mycharge, 0);
+    this.buildDimeter();
     charge = mycharge;
     spin = myspin;
-    RefEnergy = Double.NaN; // Placeholder
+    RefEnergy = Double.NaN;
+    this.dEField = new double[Cartes.getNoOfAtoms()][3];
   }
 
   public Guest(final String XYZFile) {
@@ -96,21 +101,32 @@ public class Guest implements Serializable {
     Cartes.moveCoordsToCOM();
     charge = 0;
     spin = 1;
-    RefEnergy = Double.NaN; // Placeholder
+    RefEnergy = Double.NaN;
+    this.dEField = new double[Cartes.getNoOfAtoms()][3];
   }
 
   public Guest(final Guest source) {
     charge = source.getCharge();
     spin = source.getSpin();
+    dimeter = source.getDimeter();
     RefEnergy = source.getRefEnergy();
     Cartes = source.getCartesianCoordinates();
+    dEField = source.getEField();
   }
 
   public Guest(CartesianCoordinates Coords, short Charge, short Spin) {
+    float fCharge = (float) Charge;
     this.charge = Charge;
     this.spin = Spin;
     this.RefEnergy = Coords.getEnergy();
     this.Cartes = Coords.copy();
+    if ((short) Coords.getTotalCharge() != Charge) {
+      for (int iAtom = 0; iAtom < Coords.getNoOfAtoms(); iAtom++) {
+        this.Cartes.setChargeAtAtom(0, iAtom);
+      }
+      this.Cartes.setChargeAtAtom(fCharge, 0);
+    }
+    this.dEField = new double[Cartes.getNoOfAtoms()][3];
   }
 
   public double getRMSDToComplex(CartesianCoordinates coordsComplex) {
@@ -134,12 +150,53 @@ public class Guest implements Serializable {
     return this.charge;
   }
 
+  public float getTotalCharge() {
+    return this.Cartes.getTotalCharge();
+  }
+
+  public float[] getAllCharges() {
+    return this.Cartes.getAllCharges();
+  }
+
+  public void setAllCharges(float[] charges) {
+    this.Cartes.setAllCharges(charges);
+  }
+
   public short getSpin() {
     return this.spin;
   }
 
   public double getRefEnergy() {
     return this.RefEnergy;
+  }
+
+  public void setRefEnergy(double dEnergy) {
+    this.RefEnergy = dEnergy;
+  }
+
+  public String[] getAtomTypes() {
+    return this.Cartes.getAllAtomTypes();
+  }
+
+  public double[] getDimeter() {
+    return this.dimeter.clone();
+  }
+
+  private void buildDimeter() {
+    double[][] xyz = this.Cartes.getAllXYZCoord();
+    double[] tmpDimeter = new double[3];
+    double minCoord = 10, maxCoord = -10;
+    for (int iDir = 0; iDir < 3; iDir++) {
+      for (int iAtom = 0; iAtom < this.getNoOfAtoms(); iAtom++) {
+        if (xyz[iDir][iAtom] > maxCoord) {
+          maxCoord = xyz[iDir][iAtom];
+        } else if (xyz[iDir][iAtom] < minCoord) {
+          minCoord = xyz[iDir][iAtom];
+        }
+      }
+      tmpDimeter[iDir] = maxCoord - minCoord;
+    }
+    this.dimeter = tmpDimeter.clone();
   }
 
   public CartesianCoordinates getCartesianCoordinates() {
@@ -164,4 +221,87 @@ public class Guest implements Serializable {
   public String[] getPrintableGuest() {
     return this.Cartes.createPrintableCartesians();
   }
+
+  public double[][] getEField() {
+    return this.dEField.clone();
+  }
+
+  public double[] getEField(int pos) {
+    return this.dEField[pos];
+  }
+
+  public void setEField(double[] dEField, int pos) {
+    this.dEField[pos] = dEField.clone();
+  }
+
+  public void buildEField(PointCharge[] allCharges) {
+    double[] tmpField1;
+    double[] tmpField2;
+    double[] tmpPos;
+    for (int iAtom = 0; iAtom < this.Cartes.getNoOfAtoms(); iAtom++) {
+      tmpPos = this.Cartes.getXYZCoordinatesOfAtom(iAtom);
+      tmpField1 = new double[3];
+      for (int iCharge = 0; iCharge < allCharges.length; iCharge++) {
+        tmpField2 = allCharges[iCharge].getField(tmpPos);
+        tmpField1 = org.ogolem.ligand.VectorUtils.addVec(tmpField1, tmpField2);
+      }
+      this.setEField(tmpField1, iAtom);
+    }
+  }
+
+  // Rotate the guest and target Dipole, until the Dipole Moments are alligned.
+  // We do not need to chase the dipole, we can just charge the reference frame!
+  // We will see if this is good after caclucating the gradients/locopts
+ public void alignWithDipole(double[] foundDipole, double[] targetDipole) { 
+    /*
+     * double[] axis = org.ogolem.ligand.VectorUtils.crossProd(targetDipole, foundDipole);
+    org.ogolem.ligand.VectorUtils.normVec(axis);
+    double angle = org.ogolem.ligand.VectorUtils.getAngle(targetDipole, foundDipole);
+    double[][] allXYZ = this.Cartes.getAllXYZCoord();
+    org.ogolem.ligand.VectorUtils.rotate(allXYZ, angle, axis);
+    this.Cartes.setAllXYZ(allXYZ);
+    */
+   double[][] allXYZ = this.Cartes.getAllXYZCoord();
+   allXYZ = org.ogolem.ligand.VectorUtils.alineXYZ(allXYZ, foundDipole, targetDipole, null, 0);
+   this.Cartes.setAllXYZ(allXYZ);
+  }
+
+  public double getRMSDOfField(CartesianCoordinates fullLigand, int iCase) {
+    assert(fullLigand != null);
+    int nAtomsLigand = fullLigand.getNoOfAtoms();
+    double res = 0, tmpDist, dScal;
+    double[] tmpField1, tmpField2;
+    double[] tmpVec = new double[3];
+    double[] guestPos;
+    String[] saAtomTypes = fullLigand.getAllAtomTypes();
+    double[] dLigRad = new double[nAtomsLigand];
+    for (int iLigAtom = 0; iLigAtom < nAtomsLigand; iLigAtom++) {
+      dLigRad[iLigAtom] = org.ogolem.core.AtomicProperties.giveRadius(saAtomTypes[iLigAtom]);
+    }
+    float[] allCharges = fullLigand.getAllCharges();
+    for (int iGuestAtom = 0; iGuestAtom < this.Cartes.getNoOfAtoms(); iGuestAtom++) {
+      tmpField2 = new double[3];
+      guestPos = this.Cartes.getXYZCoordinatesOfAtom(iGuestAtom);
+      for (int iLigAtom = 0; iLigAtom < nAtomsLigand; iLigAtom++) {
+        if (allCharges[iLigAtom] < 1.0E-3) continue;
+        tmpVec = this.fieldFromPointCharges(allCharges[iLigAtom], fullLigand.getXYZCoordinatesOfAtom(iLigAtom), guestPos);
+        tmpField2 = org.ogolem.ligand.VectorUtils.addVec(tmpVec, tmpField2);
+      }
+      tmpDist = org.ogolem.ligand.VectorUtils.distance(tmpField2, this.getEField(iGuestAtom));
+      res += tmpDist * tmpDist;
+    }
+    return Math.sqrt(res);
+  }
+
+  // Approximate the partial charge as point charge
+  // This seems to be quit a broad approximation, but quit easy and same as sphere with constant charge
+  // Maybe add better approximation? 
+  private double[] fieldFromPointCharges(float fcharge, double[] dChargePos, double[] dGuestPos) {
+    double[] dconVec = org.ogolem.ligand.VectorUtils.connectVec(dGuestPos, dChargePos);
+    double dScal = 1 / org.ogolem.ligand.VectorUtils.getNorm(dconVec);
+    dScal *= dScal * dScal * (double) fcharge;
+    org.ogolem.ligand.VectorUtils.scaleVec(dconVec, dScal);
+    return dconVec;
+  }
+
 }

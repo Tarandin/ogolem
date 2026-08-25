@@ -42,8 +42,10 @@ public final class FixedValues {
   private FixedValues() {}
   ;
 
-  public static final double BADENERGY = 3000.0;
-  public static final double KNOWNFITNESS = 2000.0;
-  public static final double UNBOUND = 1000.0;
-  public static final double BADANGLE = 1000.0;
+  public static final double BADENERGY = 50000000.0;
+  public static final double KNOWNFITNESS = 7000.0;
+  public static final double UNBOUND = 12500000.0;
+  public static final double BADANGLE = 5000.0;
+  public static final double BADDIPOLE = 25000000.0;
+  public static final double BADSTRUCTURE = 100000000;
 }

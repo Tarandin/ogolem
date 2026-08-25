@@ -229,7 +229,8 @@ final class Output {
          final int iTotalCharge,
          final int iTotalSpin,
          final int iNoOfCycles,
-         final boolean justSP)
+         final boolean justSP,
+         final int[] constraints)
          throws InitIOException {
 
        String sSpin;
@@ -270,35 +271,48 @@ final class Output {
        }
 
        final int iNoOfAtoms = saAtoms.length;
+       final float fNoOfAtoms = (float) iNoOfAtoms;
+       int iMaxTime = iNoOfAtoms / 50 + 1;
+       String opt = " 1";
+       if (constraints[0] > 0) opt = " 0";
        final String[] saOutput = new String[iNoOfAtoms + 3];
+       final float GNORM = (float) 0.05 + fNoOfAtoms / (float) 35; 
 
        if (justSP) {
-         saOutput[0] = "XYZ NOLOG T=100H ";
+         saOutput[0] = "NOLOG 1SCF T=" + iMaxTime + "M THREADS=1 ";
        } else {
-         saOutput[0] = "XYZ NOLOG GEO-OK T=100H XYZCYCLES=" + iNoOfCycles + " ";
+         iMaxTime *= 10;
+         saOutput[0] = "XYZ NOLOG GEO-OK";
+         if (constraints[0] > 0) saOutput[0] += " MOZYME GNORM=" + String.format("%.2f", GNORM) + " T=" + iMaxTime + "M";
+         saOutput[0] += " THREADS=1 XYZCYCLES=" + iNoOfCycles + " ";
        }
        saOutput[0] +=  sMopacMethod
                + " charge="
                + iTotalCharge
                + " "
                + sSpin
-               + " GRADIENTS";
+               + " GRADIENTS EPS=78.8";
       saOutput[1] = "CREATED BY OGOLEM";
 
       saOutput[2] = "";
 
       for (int i = 3; i < iNoOfAtoms + 3; i++) {
+        if (i-3  >= iNoOfAtoms - constraints[1]) {
+          opt = " 0";
+        } else if (opt == " 0") {
+          if (i-3 >= constraints[0]) opt = " 1";
+        }
         saOutput[i] = 
             saAtoms[i-3]
                 + "\t"
                 + (daXYZ[0][i-3] * BOHRTOANG)
-                + " 1"
+                + opt
                 + "\t"
                 + (daXYZ[1][i-3] * BOHRTOANG)
-                + " 1"
+                + opt
                 + "\t"
                 + (daXYZ[2][i-3] * BOHRTOANG)
-                + " 1";
+                + opt;
       }
 
       try {

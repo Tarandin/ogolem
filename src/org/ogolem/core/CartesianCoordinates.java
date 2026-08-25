@@ -316,6 +316,7 @@ public class CartesianCoordinates implements StructuralData {
     float tmpCharge = getChargeOfAtom(at1);
     short tmpAtomNumber = getAtomNumberOfAtom(at1);
     double[] tmpPosition = getXYZCoordinatesOfAtom(at1);
+    short tmpAtomNo = atomNumbers[at1];
     setXYZCoordinatesOfAtom(getXYZCoordinatesOfAtom(at2), at1);
     setXYZCoordinatesOfAtom(tmpPosition, at2);
     atomNames[at1] = getAtomType(at2);
@@ -324,6 +325,8 @@ public class CartesianCoordinates implements StructuralData {
     charges[at2] = tmpCharge;
     spins[at1] = getSpinOfAtom(at2);
     spins[at2] = tmpSpin;
+    atomNumbers[at1] = atomNumbers[at2];
+    atomNumbers[at2] = tmpAtomNo;
   }
 
   /**
@@ -368,7 +371,7 @@ public class CartesianCoordinates implements StructuralData {
     assert (atom >= 0);
     assert (atom < noOfAtoms);
     atomNames[atom] = newType;
-    atomNumbers[atom] = AtomicProperties.giveAtomicNumber(newType);
+    if (atomNumbers != null) atomNumbers[atom] = AtomicProperties.giveAtomicNumber(newType);
   }
 
   public String[] getAllAtomTypes() {
@@ -473,7 +476,7 @@ public class CartesianCoordinates implements StructuralData {
   public void setAllCharges(final float[] newCharges) {
     assert (newCharges != null);
     assert (newCharges.length == noOfAtoms);
-    this.charges = newCharges;
+    this.charges = newCharges.clone();
   }
 
   @Override
@@ -488,7 +491,7 @@ public class CartesianCoordinates implements StructuralData {
     charges[atom] = charge;
   }
 
-  void setSpinAtAtom(final short spin, final int atom) {
+  public void setSpinAtAtom(final short spin, final int atom) {
     assert (atom >= 0);
     spins[atom] = spin;
   }

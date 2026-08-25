@@ -135,6 +135,17 @@ public class VectorUtils {
     return res;
   }
 
+  public static double[] addVec(double[] Vec1, double[] Vec2) {
+    assert(Vec1 != null);
+    assert(Vec2 != null);
+    assert(Vec1.length == Vec2.length);
+    double[] res = new double[Vec1.length];
+    for (int i = 0; i < Vec1.length; i++) {
+      res[i] = Vec1[i] + Vec2[i];
+    }
+    return res;
+  }
+
   public static double[] crossProd(double[] Vec1, double[] Vec2) {
     assert (Vec1 != null);
     assert (Vec2 != null);
@@ -158,7 +169,7 @@ public class VectorUtils {
     return prod / (norm1 * norm2);
   }
 
-  public static void rotate(double[][] XYZ, double CA, double[] Axis) {
+  public static void rotate(double[][] XYZ, final double CA, final double[] Axis) {
     assert (Axis.length == XYZ.length);
     assert (Axis.length == 3);
     assert (getNorm(Axis) - 1 < 1E-6);
@@ -166,7 +177,7 @@ public class VectorUtils {
     double sgn = -1;
     double CA1 = 1 - CA;
     double[][] RotMat = new double[3][3];
-    double[] tmpVec;
+    double[] tmpVec = new double[3];
     for (int i = 0; i < 3; i++) {
       RotMat[i][i] = Axis[i] * Axis[i] * CA1 + CA;
       for (int j = i + 1; j < 3; j++) {
@@ -175,6 +186,8 @@ public class VectorUtils {
         sgn = sgn * (-1);
       }
     }
+    //org.ogolem.math.TrivialLinearAlgebra.matMult(XYZ, RotMat, tmpMat);
+    //XYZ = tmpMat.clone();
     for (int ixyz = 0; ixyz < XYZ.length; ixyz++) {
       tmpVec = new double[3];
       for (int idir = 0; idir < 3; idir++) {
@@ -200,7 +213,7 @@ public class VectorUtils {
       Axis[1] = XCVec1[0] * -1;
       Axis[2] = 0.0;
     } else {
-      translate(invertedXYZ, XCPos);
+      if (XCPos != null) translate(invertedXYZ, XCPos);
       return transpose(invertedXYZ);
     }
     double[] CenterPos = invertedXYZ[center].clone();
@@ -211,7 +224,7 @@ public class VectorUtils {
     normVec(Axis);
     rotate(invertedXYZ, CosAngle, Axis);
     translate(invertedXYZ, CenterPos);
-    translate(invertedXYZ, XCPos);
+    if (XCPos != null) translate(invertedXYZ, XCPos);
     return transpose(invertedXYZ);
   }
 

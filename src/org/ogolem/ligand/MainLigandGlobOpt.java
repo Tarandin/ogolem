@@ -39,6 +39,8 @@ package org.ogolem.ligand;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 import org.ogolem.core.CastException;
 import org.ogolem.core.InitIOException;
 import org.ogolem.generic.genericpool.GenericPool;
@@ -88,21 +90,9 @@ public class MainLigandGlobOpt {
     System.out.println("Input File:: " + configFile);
     System.out.println("Number of Threads:: " + noThreads);
 
-    // get input and output file as well as results directory
-    final Tuple3D<String, String, String> dirs =
-        ManipulationPrimitives.outDirAndBaseName(configFile);
-    final String inpFolder = dirs.getObject1();
-    final String outFolder = dirs.getObject2();
-    final String baseName = dirs.getObject3();
-    final String outFile = outFolder + File.separator + baseName + ".out";
-    System.out.println("inp Folder:: " + inpFolder);
-    System.out.println("out Folder:: " + outFolder);
-    System.out.println("base Name:: " + baseName);
-    System.out.println("out file " + outFile);
-
-    LigandConfig lconf = null;
+    LigandConfig lConf = null;
     try {
-      lconf = LigandInput.readConfig(configFile);
+      lConf = LigandInput.readConfig(configFile);
     } catch (CastException e1) {
       System.err.println("ERROR: Could not configure from file!");
       e1.printStackTrace(System.err);
@@ -117,76 +107,128 @@ public class MainLigandGlobOpt {
       System.exit(113);
     }
 
-    lconf.setOutputFolder(outFolder);
-    lconf.setOutputFile(outFile);
-    if (lconf.Debug) {
+    // get input and output file as well as results directory
+    final Tuple3D<String, String, String> dirs =
+        ManipulationPrimitives.outDirAndBaseName(configFile);
+    final String inpFolder = dirs.getObject1();
+    final String outFolder = dirs.getObject2();
+    final String baseName = dirs.getObject3();
+
+    lConf.setOutputFolder(outFolder);
+
+    final String outFile = lConf.OutputFolder + File.separator + baseName + ".out";
+
+    lConf.setOutputFile(outFile);
+
+    System.out.println("inp Folder:: " + inpFolder);
+    System.out.println("out Folder:: " + lConf.OutputFolder);
+    System.out.println("base Name:: " + baseName);
+    System.out.println("out file " + lConf.OutputFile);
+
+    try {
+      org.ogolem.io.OutputPrimitives.createAFolder(lConf.OutputFolder);
+      System.setOut(new PrintStream(new FileOutputStream(outFile)));
+    } catch (Exception e) {
+      System.err.println("Could not use output file!");
+      e.printStackTrace();
+      System.exit(110);
+    }
+
+    if (lConf.Debug) {
       System.out.println("Configuration after reading it::");
-      System.out.println("PoolSize=" + lconf.PoolSize);
-      System.out.println("NoOfGlobIter=" + lconf.NoOfGlobIters);
-      System.out.println("OutputFile=" + lconf.OutputFile);
-      System.out.println("OutputFolder=" + lconf.OutputFolder);
-      System.out.println("ToSerial=" + lconf.ToSerial);
-      System.out.println("AnyDivCheck=" + lconf.AnyDivCheck);
-      System.out.println("FitnessDiversity=" + lconf.FitnessDiversity);
-      System.out.println("ToSerial=" + lconf.ToSerial);
-      System.out.println("BlowBondsFac=" + lconf.dBlowBondsFac);
-      System.out.println("WhichLocAlgo=" + lconf.WhichLocAlgo);
-      System.out.println("TargetDipoleX=" + lconf.targetDipole[0]);
-      System.out.println("TargetDipoleY=" + lconf.targetDipole[1]);
-      System.out.println("TargetDipoleZ=" + lconf.targetDipole[2]);
-      lconf.Back.printXYZ("debugBack.xyz");
-      System.out.println("Printing XC Positions:");
-      for (int i = 0; i < lconf.Back.getNumXCPos(); i++) {
-        System.out.println("   " + lconf.Back.getXCPosition(i));
-      }
-      lconf.Guest.printXYZ("debugGuest.xyz");
-      for (int i = 0; i < lconf.Sides.length; i++) {
-        lconf.Sides[i].printXYZ("debugFG" + i + ".xyz");
+      System.out.println("PoolSize=" + lConf.PoolSize);
+      System.out.println("NoOfGlobIter=" + lConf.NoOfGlobIters);
+      System.out.println("OutputFile=" + lConf.OutputFile);
+      System.out.println("OutputFolder=" + lConf.OutputFolder);
+      System.out.println("ToSerial=" + lConf.ToSerial);
+      System.out.println("AnyDivCheck=" + lConf.AnyDivCheck);
+      System.out.println("FitnessDiversity=" + lConf.FitnessDiversity);
+      System.out.println("ToSerial=" + lConf.ToSerial);
+      System.out.println("BlowBondsFac=" + lConf.dBlowBondsFac);
+      System.out.println("WhichLocAlgo=" + lConf.WhichLocAlgo);
+      System.out.println("TargetDipoleX=" + lConf.targetDipole[0]);
+      System.out.println("TargetDipoleY=" + lConf.targetDipole[1]);
+      System.out.println("TargetDipoleZ=" + lConf.targetDipole[2]);
+      System.out.println("Printing XC Info:");
+      for (int i = 0; i < lConf.Back.getNumXCPos(); i++) {
+        System.out.println("   " + lConf.Back.getXCPosition(i) + "     " + lConf.Back.getBoundIdx(i));
       }
     }
 
-    ThreadingInits ThreadInt = new ThreadingInits(lconf, noThreads);
+    ThreadingInits ThreadInt = new ThreadingInits(lConf, noThreads);
     ThreadInt.initializeFragments();
 
-    final Ligand refLigand = new Ligand(lconf);
-    if (lconf.Debug) {
-      refLigand.printLigand("DebugRefLigand.xyz");
+    final Ligand refLigand = new Ligand(lConf);
+    
+    if (lConf.Debug) {
+      System.out.println("Charges of Backbone: \n");
+      System.out.println(lConf.Back.getPrintableCharges());
+      for (int iFrag = 0; iFrag < lConf.Sides.length; iFrag++) {
+        System.out.println("Charges of Side" + iFrag + ":\n");
+        System.out.println(lConf.Sides[iFrag].getPrintableCharges());
+      }
+      System.out.println("Print Debug Structures after optimization...");
+      refLigand.printLigand(lConf.OutputFolder + "/DebugRefLigand.xyz");
+      lConf.Back.printXYZ(lConf.OutputFolder + "/debugBack.xyz");
+      lConf.Back.printSBI(lConf.OutputFolder + "/debugBackSBI.dat");
+      lConf.Guest.printXYZ(lConf.OutputFolder + "/debugGuest.xyz");
+      for (int i = 0; i < lConf.Sides.length; i++) {
+        lConf.Sides[i].printXYZ(lConf.OutputFolder + "/debugFG" + i + ".xyz");
+        lConf.Sides[i].printSBI(lConf.OutputFolder + "/debugFGSBI" + i + ".dat");
+      }
     }
 
-    final GenericPool<Double, Ligand> pool = new GenericPool<>(lconf.getGenericConfig(), refLigand);
-    ThreadInt.setPool(pool);
-    //ThreadingInits ThreadInt = new ThreadingInits(lconf, noThreads, pool);
-    ThreadInt.fillInitialPool();
-    if (lconf.Debug) {
+    GenericPool<Fragment, Ligand> pool = new GenericPool<>(lConf.getGenericConfig(), refLigand);
+    if (lConf.bRestart) {
       try {
-      Output.createAFolder("InitPool");
-      } catch (IOException e) {
-        System.err.println("Cound not create Folder InitPool.");
+        pool = LigandInput.readLigandPool(lConf.RestartPool);
+        assert(pool.getPoolSize() == lConf.PoolSize);
+      } catch (Exception e) {
+        System.err.println("Unable to read binary restart file! "+e.toString());
+        System.exit(110);
       }
-      for (int iind = 0; iind < pool.getPoolSize(); iind++) {
+    } else {
+      ThreadInt.setPool(pool);
+      ThreadInt.fillInitialPool();
+    }
+    if (lConf.Debug) {
+      try {
+        org.ogolem.io.OutputPrimitives.createAFolder(lConf.OutputFolder + "/InitPool");
+        org.ogolem.io.OutputPrimitives.writeObjToBinFile(lConf.OutputFolder + "/InitPool/InitPool.bin", pool);
+      } catch (IOException e) {
+        System.err.println("Cound not create Folder InitPool or write inital Pool binary!. "+ e.toString());
+        System.exit(115);
+      }
+      for (int iind = 0; iind < pool.getCurrentPoolSize(); iind++) {
         Ligand tmpLig =  pool.getIndividualAtPosition(iind);
-        tmpLig.printLigand("InitPool/initalindividual"+iind+".xyz");
+        tmpLig.printLigand(lConf.OutputFolder + "/InitPool/initalindividual"+iind+".xyz");
       }
     }
 
-    final ThreadingGlobOpt globopt = new ThreadingGlobOpt(lconf, noThreads, pool);
+    final ThreadingGlobOpt globopt = new ThreadingGlobOpt(lConf, noThreads, pool);
     globopt.doGlobOpt();
 
     try {
-      Output.createAFolder("FinPool");
+      org.ogolem.io.OutputPrimitives.createAFolder(lConf.OutputFolder + "/FinPool");
+      org.ogolem.io.OutputPrimitives.writeObjToBinFile(lConf.OutputFolder + "/FinPool/FinPool.bin", pool);
     } catch (IOException e) {
       System.err.println("Could not create Folder FinPool.");
     }
-    for (int i = 0; i < lconf.PoolSize; i++) {
+    System.out.println("   RANK       ID     FATHERID  MOTHERID          FITNESS                 DIPOLE          CHARGE");
+    String infoLine;
+    for (int i = 0; i < pool.getCurrentPoolSize(); i++) {
       final Ligand lig = pool.getIndividualAtPosition(i);
 
-      final String sFileLig = "FinPool/rank";
+      final String sFileLig = lConf.OutputFolder +  "/FinPool/rank";
 
       try {
          lig.printOptimizedIndividual(sFileLig, i);
       } catch (Exception e) {
-        System.err.println("ERROR: Failes to serialize the final pool! "+e.toString());
+        System.err.println("ERROR: Failes to print the final pool! "+e.toString());
       }
+      infoLine = org.ogolem.ligand.LittleHelpers.fixedLength(" " + i, 10);
+      infoLine += lig.getInfoLine();
+      System.out.println(infoLine);
     }
   }
 }

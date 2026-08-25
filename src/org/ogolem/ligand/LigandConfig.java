@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
+import java.io.File;
 import java.io.Serializable;
 import org.ogolem.generic.genericpool.*;
 
@@ -56,22 +57,29 @@ public final class LigandConfig implements Serializable {
   public double[] targetDipole = new double[3];
   public static String OutputFile;
   public static String OutputFolder;
+  public static String RestartPool;
   public static Fragment Back = null;
   public static Fragment[] Sides = null;
   public static Guest Guest = null;
-  public double T;
+  public static PointCharge[] GOCAT = null;
+  public double T=300;
   static int ToSerial = 100;
   static boolean AnyDivCheck = true;
   static double FitnessDiversity = 1E-6;
   int WhichGlobAlgo = 0;
   int WhichLocAlgo = 100;
+  public int iEFieldMethod = 0;
   public static boolean Debug = false;
   public boolean bMoreMutation = false;
-  String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
+  public boolean bConstraints = true;
+  public boolean bRestart = false;
+  public String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
   public static double dDipolePen = 100;
-  public static double dBindPen = 100;
-  public static double dGradPen = 1000;
+  public static double dBindPen = 10;
+  public static double dGradPen = 1;
+  public static double dChargePen = 1;
+
 
   // Excatly copyied from SwitchesConfig.java. Would be better not to have this code two times!!!
   static int pareseIntLocOptFromString(final String sLocOpt) {
@@ -119,6 +127,8 @@ public final class LigandConfig implements Serializable {
         return 204;
       } else if (sTemp3.equalsIgnoreCase("pm6-d3h4")) {
         return 205;
+      } else if (sTemp3.equalsIgnoreCase("pm7")) {
+        return 206;
       } else {
         System.err.println("WARNING: Wrong input to configure MOPAC: " + sTemp3 + " using pm3.");
         return 202;
@@ -130,10 +140,38 @@ public final class LigandConfig implements Serializable {
     }
   }
 
-  // Copied, but not fully adapted!
-  public GenericPoolConfig<Double, Ligand> getGenericConfig() {
+  public void saneDipole() throws Exception {
+    double[] gocatDipole = new double[3];
+    if (this.GOCAT == null && org.ogolem.ligand.VectorUtils.getNorm(this.targetDipole) == 0) {
+      throw new Exception("No Dipole or GOCAT has been provided, but requested in fitness function!");
+    } else if (this.GOCAT != null) {
+      for (PointCharge pc : this.GOCAT) {
+        gocatDipole = org.ogolem.ligand.VectorUtils.addVec(gocatDipole, pc.getDipoleContribution());
+      }
+      if (org.ogolem.ligand.VectorUtils.getNorm(this.targetDipole) == 0) {
+        System.out.println("Dipole will be calculated from GOCAT: ");
+        this.targetDipole = gocatDipole.clone();
+        org.ogolem.ligand.VectorUtils.printVec(this.targetDipole, 1);
+      } else if (org.ogolem.ligand.VectorUtils.getNorm(this.targetDipole) != org.ogolem.ligand.VectorUtils.getNorm(gocatDipole)) {
+        throw new Exception("Dipole and GOCAT are not compatable! Please check your input!");
+      }
+    }
+  }
 
-    final GenericPoolConfig<Double, Ligand> config = new GenericPoolConfig<>();
+  public short getGOCATCharge() {
+    double res = 0;
+    if (this.GOCAT != null) {
+      for (PointCharge pc : this.GOCAT) {
+        res += pc.getCharge();
+      }
+    }
+    return (short) res;
+  }
+
+  // Copied, but not fully adapted!
+  public GenericPoolConfig<Fragment, Ligand> getGenericConfig() {
+
+    final GenericPoolConfig<Fragment, Ligand> config = new GenericPoolConfig<>();
 
     config.setDoNiching(false); // XXX
     config.setSerializeAfterNewBest(true);
@@ -141,9 +179,9 @@ public final class LigandConfig implements Serializable {
     config.setAddsToSerial(LigandConfig.ToSerial);
     config.setWriteEveryAdd(false);
     config.setPoolSize(LigandConfig.PoolSize);
-    config.setInterBinFile("IntermediateLigandPool.bin");
+    config.setInterBinFile(this.OutputFolder + "/IntermediateLigandPool.bin");
 
-    DiversityChecker<Double, Ligand> diver;
+    DiversityChecker<Fragment, Ligand> diver;
     switch (0) {
       case 0:
         diver =
@@ -157,7 +195,7 @@ public final class LigandConfig implements Serializable {
     }
     config.setDiversityChecker(diver);
 
-    ParentSelector<Double, Ligand> selec;
+    ParentSelector<Fragment, Ligand> selec;
     try {
       selec = GenericParentSelectors.buildSelector(whichParentsChoice);
     } catch (Exception e) {
@@ -166,13 +204,20 @@ public final class LigandConfig implements Serializable {
     config.setSelector(selec);
 
     config.setWriter(new LigandWriter());
-    config.setStats(new GenericStatistics("lprogress.log", 10000)); // XXX hard coded
+    config.setStats(new GenericStatistics(this.OutputFolder + "/lprogress.log", 10000)); // XXX hard coded
 
     return config;
   }
 
   public void setOutputFolder(String folder) {
     this.OutputFolder = folder;
+    int tried = 0;
+    if (new File(folder).exists()) {
+      while (new File(folder + "." + tried).exists() && tried < 1000) {
+        tried++;
+      }
+      this.OutputFolder += "." + tried;
+    }
   }
 
   public void setOutputFile(String file) {

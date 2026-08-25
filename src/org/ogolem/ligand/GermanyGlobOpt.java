@@ -45,6 +45,7 @@ final class GermanyGlobOpt implements LigandDarwin {
   private final Taboos taboos;
   private final FitnessFunction fitness;
   private final Fragment FragList[];
+  private final double dBlowBondsFac;
 
   GermanyGlobOpt(final LigandConfig lConf) {
     this.bMoreMut = lConf.bMoreMutation;
@@ -52,6 +53,7 @@ final class GermanyGlobOpt implements LigandDarwin {
     this.fitness = new FitnessFunction(lConf);
     this.FragList = new Fragment[lConf.Sides.length];
     System.arraycopy(lConf.Sides, 0, this.FragList, 0, lConf.Sides.length);
+    this.dBlowBondsFac = lConf.dBlowBondsFac;
   }
 
   @Override
@@ -85,16 +87,19 @@ final class GermanyGlobOpt implements LigandDarwin {
     }
 
     if (bKnownOne && bKnownTwo) {
-      System.out.println("Both children for Ligand" + iID + " are known. Retrun null!");
       return null;
     } else if (bKnownOne && !bKnownTwo) {
+      lTwo.buildLigandBondInfo(this.dBlowBondsFac);
       return lTwo;
     } else if (!bKnownOne && bKnownTwo) {
+      lOne.buildLigandBondInfo(this.dBlowBondsFac);
       return lOne;
     } else if (!bKnownOne && !bKnownTwo) {
       if (dFitOne <= dFitTwo) {
+        lOne.buildLigandBondInfo(this.dBlowBondsFac);
         return lOne;
       } else {
+        lTwo.buildLigandBondInfo(this.dBlowBondsFac);
         return lTwo;
       }
     } else {
@@ -128,8 +133,12 @@ final class GermanyGlobOpt implements LigandDarwin {
     final Ligand ligandEnd = new Ligand(ligandStart);
 
     int iFragIDs[] = ligandStart.getFragIDList();
-
-    iFragIDs = GlobOptAtomics.genotypeMutation(iFragIDs, bMoreMut);
+   
+    if (ligandStart.getFatherID() == ligandStart.getMotherID()) {
+       iFragIDs = GlobOptAtomics.genotypeMutation(iFragIDs, true);
+    } else { 
+      iFragIDs = GlobOptAtomics.genotypeMutation(iFragIDs, bMoreMut);
+    }
 
     ligandEnd.setSides(iFragIDs, this.FragList);
     return ligandEnd;

@@ -44,7 +44,7 @@ import org.ogolem.generic.genericpool.GenericPool;
 final class ThreadingGlobOpt {
   
   private final LigandConfig conf;
-  private final GenericPool<Double,Ligand> pool;
+  private final GenericPool<Fragment,Ligand> pool;
 
   private final int iThreads;
 
@@ -52,7 +52,7 @@ final class ThreadingGlobOpt {
 
   private final int iIterations;
 
-  ThreadingGlobOpt(LigandConfig lconf, int iNoOfThreads, GenericPool<Double,Ligand> pool) {
+  ThreadingGlobOpt(LigandConfig lconf, int iNoOfThreads, GenericPool<Fragment,Ligand> pool) {
     this.conf = lconf;
     this.iThreads = iNoOfThreads;
     this.iOffset = lconf.PoolSize;
@@ -62,8 +62,16 @@ final class ThreadingGlobOpt {
 
   void doGlobOpt() {
     final ExecutorService threadpool = Executors.newFixedThreadPool(iThreads);
-
-    for (long i = this.iOffset; i < (this.iIterations + this.iOffset); i++) {
+    System.out.println("Start The Globopt:" );
+    final Taboos taboos = Taboos.getReference();;
+    long iRestartPos = 0;
+    if (this.conf.bRestart) {
+      for (long i = 0; i < (long) this.iOffset; i++) {
+        if (iRestartPos < this.pool.getIndividualAtPosition((int) i).getID()) iRestartPos = this.pool.getIndividualAtPosition((int) i).getID();
+        taboos.addTaboo(this.pool.getIndividualAtPosition((int) i));
+      }
+    }
+    for (long i = this.iOffset + iRestartPos; i < (this.iIterations + this.iOffset); i++) {
       threadpool.submit(createLigandTask(this.pool, i, this.conf, Taboos.getReference()));
     }
 
@@ -76,7 +84,7 @@ final class ThreadingGlobOpt {
     }
   }
 
-  private static Runnable createLigandTask(final GenericPool<Double, Ligand> pool, final long position,
+  private static Runnable createLigandTask(final GenericPool<Fragment, Ligand> pool, final long position,
           final LigandConfig lconf, final Taboos taboos) {
 
     return () -> {
@@ -86,10 +94,9 @@ final class ThreadingGlobOpt {
       boolean accepted;
 
       if (lChild != null) {
-        System.out.println("End Job"+position + " sucessfully!");
-        System.out.println("Fitness: "+lChild.getFitness());
         accepted = pool.addIndividual(lChild, lChild.getFitness());
         taboos.addTaboo(lChild);
+        if (accepted) System.out.println("Ligand" + position + "with Fitness " + lChild.getFitness() + " was added to pool!");
       }
     };
   }
