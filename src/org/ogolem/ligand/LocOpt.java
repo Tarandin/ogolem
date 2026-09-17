@@ -45,6 +45,7 @@ final class LocOpt implements LocalOptimization {
 
   LocOpt(final LigandConfig lConf){
     switch(lConf.WhichLocAlgo){
+      /*
       case 0:
         locopt = new TinkerLocOpt(0, lConf.dBlowBondsFac, lConf.Debug);
         break;
@@ -66,6 +67,7 @@ final class LocOpt implements LocalOptimization {
       case 103:
         locopt = new OpenBabelLocOpt(lConf.WhichLocAlgo - 100, lConf);
         break;
+      */
       case 200:
         locopt = new MopacLocOpt(0, lConf.iMaxIterLocOpt, lConf.bConstraints);
         break;
@@ -102,5 +104,10 @@ final class LocOpt implements LocalOptimization {
   @Override
   public boolean doSinglePoint(final CartesianCoordinates cartes, final int id, Ligand lig){
     return locopt.doSinglePoint(cartes, id, lig);
+  }
+
+  @Override
+  public CartesianCoordinates propagateGuest(final CartesianCoordinates cartesStart, final int id, Ligand lig){
+    return locopt.propagateGuest(cartesStart, id, lig);
   }
 }

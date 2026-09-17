@@ -66,6 +66,7 @@ public final class Fragment implements Serializable {
   private final int FragID;
   private SimpleBondInfo sbiFrag = null;
 
+  //copy constructure
   public Fragment(final Fragment source) {
     this.Cartes = source.getCartes();
     this.XCPositions = source.XCPositions.clone();
@@ -79,6 +80,7 @@ public final class Fragment implements Serializable {
     this.sbiFrag = source.getBondInfo();
   }
 
+  // copy construcutre, but alligne bond to enxchanged Atom with scafold
   public Fragment(final Fragment source, final Fragment Backbone, int iSide) {
     assert (iSide < Backbone.NumXCPositions);
     assert (source.XCBindVector.length == 1);
@@ -105,6 +107,7 @@ public final class Fragment implements Serializable {
     this.sbiFrag = source.getBondInfo();
   }
 
+  // construct fragment from XYZ File. Spin and charge have to be given from other source for easyer useage
   public Fragment(final String XYZFile, int ID, final short myspin, final short mycharge) {
     CartesianCoordinates myCartes = null;
     try {
@@ -136,6 +139,7 @@ public final class Fragment implements Serializable {
     this.FragID = ID;
   }
 
+  // contruct fragment from xyz file. Assume a uncharged singlett structure
   public Fragment(final String XYZFile, int ID) {
     CartesianCoordinates myCartes = null;
     try {
@@ -165,6 +169,8 @@ public final class Fragment implements Serializable {
     this.FragID = ID;
   }
 
+  // Sort the XC positions to the end of the cartesian object
+  // this makes it much easier to access the informations of all non XC-Atoms!
   public void sortXCtoEnd() {
     for (int ixc = this.NumXCPositions -1; ixc >= 0; ixc--) {
       if (this.XCPositions[ixc] == this.getNumOfAtoms() + ixc) continue;
@@ -177,6 +183,7 @@ public final class Fragment implements Serializable {
     return new CartesianCoordinates(this.Cartes);
   }
 
+  // Used for reference calculations: build cartesian object where all XC atoms are exchanged with H
   public CartesianCoordinates getCartesWithH() {
     CartesianCoordinates newCartes = new CartesianCoordinates(this.Cartes);
     for (int iXC : this.XCPositions) {
@@ -193,6 +200,7 @@ public final class Fragment implements Serializable {
     this.Cartes.setEnergy(newCartes.getEnergy());
   }
 
+  // Used after reference calculations: get optimized structures and reintroduce the XC positons
   public void setCartesWithXC(CartesianCoordinates newCartes) {
     this.Cartes.setAllSpins(newCartes.getAllSpins());
     this.setCharge(newCartes.getAllCharges());
@@ -220,6 +228,7 @@ public final class Fragment implements Serializable {
     return this.Cartes.getXYZCoordinatesOfAtom(xcpos);
   }
 
+  // store the index of all XC positions with an int array for easy access!
   private int[] BuildXCPositions() {
     final int natoms = this.Cartes.getNoOfAtoms();
     int[] myXCArray = null;
@@ -240,6 +249,7 @@ public final class Fragment implements Serializable {
     return myXCArray;
   }
 
+  // get position of bound to the XC position
   public double[] getBoundXYZ(int iXC) {
     int iBound = this.BoundToXC[iXC];
     return this.Cartes.getXYZCoordinatesOfAtom(iBound);
@@ -249,6 +259,7 @@ public final class Fragment implements Serializable {
     return this.XCPositions[iPos];
   }
 
+  // get vector between XC position and bound atom
   public double[] getXCBindVec(int which) {
     return this.XCBindVector[which];
   }

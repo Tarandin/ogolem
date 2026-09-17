@@ -53,6 +53,7 @@ public final class LigandConfig implements Serializable {
   public static int iMaxIterLocOpt = 200;
 
   public double dBlowBondsFac = 1.2;
+  public double dRefFitness = 0.0;
   public int MaxIterLocOpt = 200;
   public double[] targetDipole = new double[3];
   public static String OutputFile;
@@ -63,16 +64,20 @@ public final class LigandConfig implements Serializable {
   public static Guest Guest = null;
   public static PointCharge[] GOCAT = null;
   public double T=300;
+  public double acceptableFitness = 0.0;
   static int ToSerial = 100;
   static boolean AnyDivCheck = true;
-  static double FitnessDiversity = 1E-6;
+  static double FitnessDiversity = 1E-2;
   int WhichGlobAlgo = 0;
   int WhichLocAlgo = 100;
+  public int maxIndividualsPerNiche = 100;
   public int iEFieldMethod = 0;
   public static boolean Debug = false;
   public boolean bMoreMutation = false;
   public boolean bConstraints = true;
   public boolean bRestart = false;
+  public boolean doNiching = false;
+  public boolean useRefFit = false;
   public String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
   public static double dDipolePen = 100;
@@ -168,18 +173,51 @@ public final class LigandConfig implements Serializable {
     return (short) res;
   }
 
+  public boolean buildRefFitness() {
+    int nXC, iHIdx = -1;
+    int[] iFragList;
+    nXC = this.Back.getNumXCPos();
+    iFragList = new int[nXC];
+    for (int i = 0; i < this.Sides.length; i++) {
+      if (this.Sides[i].getNumOfAtoms() > 1) continue;
+      if (org.ogolem.core.AtomicProperties.giveAtomicNumber(this.Sides[i].getAtomTypes()[0]) == 1) {
+        iHIdx = i;
+        break;
+      }
+    }
+    if (iHIdx == -1) {
+      this.useRefFit = false;
+      return false;
+    }
+    for (int iFrag = 0; iFrag < iFragList.length; iFrag++) {
+      iFragList[iFrag] = iHIdx;
+    }
+    Ligand refLigand = new Ligand(this.Back, this.Sides, this.Guest ,iFragList, this.dBlowBondsFac);
+    final FitnessFunction fit = new FitnessFunction(this);
+    this.dRefFitness = fit.fitnessLigand(refLigand);
+    return true;
+  }
+
+  public NicheComputer<Fragment, Ligand> getNicheComputer() {
+    if (this.doNiching) {
+      return new ChargeNicheComp();
+    }
+    return null;
+  }
+
   // Copied, but not fully adapted!
   public GenericPoolConfig<Fragment, Ligand> getGenericConfig() {
 
     final GenericPoolConfig<Fragment, Ligand> config = new GenericPoolConfig<>();
 
-    config.setDoNiching(false); // XXX
+    config.setDoNiching(this.doNiching); // XXX
     config.setSerializeAfterNewBest(true);
-    config.setAcceptableFitness(0.0);
-    config.setAddsToSerial(LigandConfig.ToSerial);
-    config.setWriteEveryAdd(false);
-    config.setPoolSize(LigandConfig.PoolSize);
+    config.setAcceptableFitness(this.acceptableFitness);
+    config.setAddsToSerial(this.ToSerial);
+    config.setWriteEveryAdd(this.Debug);
+    config.setPoolSize(this.PoolSize);
     config.setInterBinFile(this.OutputFolder + "/IntermediateLigandPool.bin");
+    if (this.doNiching) config.setNicher(new SimpleNicher<Fragment, Ligand>(this.maxIndividualsPerNiche));
 
     DiversityChecker<Fragment, Ligand> diver;
     switch (0) {

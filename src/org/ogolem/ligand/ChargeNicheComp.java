@@ -37,50 +37,38 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
-import org.ogolem.core.CartesianCoordinates;
+import org.ogolem.generic.genericpool.Niche;
+import org.ogolem.generic.genericpool.NicheComputer;
 
-final class TinkerLocOpt implements LocalOptimization {
+//This methods tends to choose one parent structure by its charge and get only the best case for simular structures
+//This NicheComuter trys to circumvent this by making sure, differently charged individuals are in the pool
 
-  private final String sWhichParameters = "mm3.prm";
-  private final double dBlowBondFac;
-  private final String sLocProgram;
-  private final String sTinkerOptions;
-  private boolean bParamsExist = false;
-  private final boolean bDebug;
+public class ChargeNicheComp implements NicheComputer<Fragment, Ligand> {
+  private static final long serialVersionUID = (long) 20300009;
+  private static final boolean bDebug = true;
 
-  TinkerLocOpt(final int iWhichMethod, final double dBlowFactorBonds, final boolean bDebugThis) {
-    this.dBlowBondFac = dBlowFactorBonds;
-    if (iWhichMethod == 0) {
-      this.sLocProgram = "minimize";
-      this.sTinkerOptions = " 0.1";
-    } else if (iWhichMethod == 1) {
-      this.sLocProgram = "newton";
-      this.sTinkerOptions = " a a 0.01";
-    } else if (iWhichMethod == 2) {
-      this.sLocProgram = "optimize";
-      this.sTinkerOptions = " 0.01";
-    } else {
-      this.sLocProgram = "minimize";
-      this.sTinkerOptions = " 0.1";
-    }
-    bDebug = bDebugThis;
+  public ChargeNicheComp () {
+  };
+
+  @Override
+  public ChargeNicheComp copy() {
+    return new ChargeNicheComp();
   }
 
   @Override
-  public boolean doSinglePoint(final CartesianCoordinates startCartes, final int iID, Ligand lig) {
-    // TODO since this is not working
-    if (true) {
-      System.err.println("THIS IS NOT WORKING (TINKER Single Point)");
+  public Niche computeNiche(final Ligand lig) {
+    double[] dDipole = lig.getDipole();
+    String sNicheID = "charge" + lig.getCharge();
+    if (dDipole != null) {
+      for (int iDir = 0; iDir < 3; iDir++) {
+        if (dDipole[iDir] < 0) {
+          sNicheID += "_-1";
+        } else {
+          sNicheID += "_1";
+        }
+      }
     }
-    return false;
-  }
-
-  @Override
-  public CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int iID, Ligand lig) {
-    // TODO since this is not working
-    if (true) {
-      System.err.println("THIS IS NOT WORKING (TINKER LCOOPT)");
-    }
-    return null;
+    if (bDebug)System.out.println("Ligand" + lig.getID() + " would be part of " + sNicheID);
+    return new Niche(sNicheID);
   }
 }

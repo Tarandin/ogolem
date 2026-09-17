@@ -154,6 +154,130 @@ final class MopacLocOpt implements LocalOptimization {
     return newCartes;
   }
 
+  // try to use FIRE locopt to propagate the static guest into its minimum inside of the guest
+  @Override
+  public CartesianCoordinates propagateGuest(final CartesianCoordinates cartes, int iID, Ligand lig) {
+    CartesianCoordinates newCartes = new CartesianCoordinates(cartes);
+    //some initial values and structures
+    //named like the paper DOI: https://doi.org/10.1103/PhysRevLett.97.170201
+    boolean converged = false;
+    int[] constraints = new int[2];
+    constraints[1] = 0;
+    constraints[0] = lig.getNumOfAtoms();
+    int Nmin = 5;
+    int nNeg = 0;
+    int iGuestAtoms = cartes.getNoOfAtoms() - lig.getNumOfAtoms();
+    int maxSteps = 1000; 
+    double alpha = 0.1, alphaStart = 0.1;
+    double fa = 0.99, fincl = 1.1, fdecl = 0.5;
+    double dt = 0.1, dtmax = 1.0;
+    double Fv = 0;
+    double Fnorm = iGuestAtoms * 10;
+    double mGuest = 0.0;
+    double XXnorm, vnorm;
+    double eps = ((double) iGuestAtoms) / 100; // cernvergence criteria
+    double[] v = new double[3];
+    double[] dx = new double[3];
+    double[][] x = new double[iGuestAtoms][3];
+    double[][] F = new double[2][3]; // two time steps new and old
+    final String sMopacInput = "mopacSP" + iID + ".dat";
+    final String sMopacOutput = sMopacInput.substring(0, sMopacInput.indexOf(".")) + ".out";
+    for (int iAtom = 0; iAtom < iGuestAtoms; iAtom++) {
+      mGuest += org.ogolem.core.AtomicProperties.giveWeight(cartes.getAtomType(iAtom + constraints[0]));
+      x[iAtom] = newCartes.getXYZCoordinatesOfAtom(iAtom + constraints[0]).clone();
+    }
+    double[][] totalF;
+    for (int iStep = 0; iStep < maxSteps; iStep++) {
+      // reset force, but remember last force
+      for (int iDir = 0; iDir < 3; iDir++) {
+        F[1][iDir] = F[0][iDir];
+        F[0][iDir] = 0.0;
+      }
+      // get new gradients/forces
+      if (!this.runMopac(newCartes, iID, true, constraints)) break;
+      try {
+        totalF = LigandInput.readMopacGuestGradient(
+           sMopacOutput, iGuestAtoms);
+      } catch (Exception e) {
+        System.err.println("ERROR in FIRE locopt while reading Input! " + e.toString());
+        break;
+      }
+
+      // Something went wrong. The FIRE locopt have failed!
+      if (totalF == null) break;
+
+      // add all forces on all atoms to get total direction of movement.
+      for (int iAtom = 0; iAtom < iGuestAtoms; iAtom++) {
+        F[0] = org.ogolem.ligand.VectorUtils.addVec(F[0], totalF[iAtom]); //+= totalF[iAtom][iDir]; 
+      }
+      org.ogolem.ligand.VectorUtils.scaleVec(F[0], -1.0); // F = -\nabla E
+      Fnorm = org.ogolem.ligand.VectorUtils.getNorm(F[0]);
+      if (Fnorm < eps) {
+        converged = true;
+        break;
+      }
+
+      // get new velocity (Gradients are negative force, not directly the force!=
+      for (int iDir = 0; iDir < 3; iDir++) {
+        v[iDir] +=  0.5 * dt * (F[0][iDir] + F[1][iDir]) / mGuest;
+        dx[iDir] = dt * v[iDir] + 0.5 * dt * dt * F[1][iDir] / mGuest;
+      }
+
+      if (org.ogolem.ligand.VectorUtils.getNorm(dx) < 0.01 && org.ogolem.ligand.VectorUtils.getNorm(v) < 0.01) break;
+
+      for (int iAtom = 0; iAtom < iGuestAtoms; iAtom++) {
+        x[iAtom] = org.ogolem.ligand.VectorUtils.addVec(x[iAtom], dx).clone();
+        newCartes.setXYZCoordinatesOfAtom(x[iAtom], iAtom + constraints[0]);
+      }
+
+      //modify velocity with v = (1 - alpha) v + alpha \hat{F}|v|
+      vnorm = org.ogolem.ligand.VectorUtils.getNorm(v);
+      for (int iDir = 0; iDir < 3; iDir++) {
+        v[iDir] = (1 - alpha) * v[iDir] + alpha * F[0][iDir] / Fnorm * vnorm; 
+      }
+
+      // Set the velocity to zero, if force and velocity point in different driectons!
+      // Adjust dt and alpha according to FIRE schema.
+      Fv = org.ogolem.ligand.VectorUtils.scalProd(F[0], v);
+      if (Fv < 0) {
+        if (nNeg < Nmin) {
+          for (int iDir = 0; iDir < 3; iDir++) {
+            v[iDir] = 0.0;
+          }
+        }
+        nNeg = 0;
+        dt = Math.min(dt * fdecl, dtmax);
+        alpha = alphaStart;
+      } else {
+        nNeg++;
+        if (nNeg > Nmin) {
+          dt = Math.min(fincl * dt, dtmax);
+          alpha *= fa;
+        }
+      }
+    }
+    if (!converged) {
+      System.err.println("FIRE locopt has not found adequarte Structure! " + Fnorm + " shoulb be at " + eps + "!");
+      //newCartes = null;
+    } else {
+      try {
+        final double[] dDipoleDump = LigandInput.readSPMopacOutput(sMopacOutput, lig.getNumOfAtoms(), newCartes);
+      } catch (Exception e) {
+        System.err.println("Error while reading final Output! " + e.toString());
+        newCartes = null;
+      }
+    }
+
+    if (!bDebug) {
+      try {
+        org.ogolem.core.Input.RemoveMopacFiles(sMopacInput);
+      } catch (Exception e) {
+        System.err.println("Problem cleaning mopac files up."+e.toString());
+      }
+    }
+    return newCartes;
+  }
+
   private boolean runMopac(final CartesianCoordinates cartes, int iID, boolean justSP, int[] constraints) {
 
     String sMopacBasis = "mopac";

@@ -40,16 +40,14 @@ package org.ogolem.ligand;
 import java.util.concurrent.*;
 import java.util.List;
 import org.ogolem.generic.genericpool.GenericPool;
+import org.ogolem.generic.genericpool.Niche;
 
 final class ThreadingGlobOpt {
   
   private final LigandConfig conf;
   private final GenericPool<Fragment,Ligand> pool;
-
   private final int iThreads;
-
   private final int iOffset;
-
   private final int iIterations;
 
   ThreadingGlobOpt(LigandConfig lconf, int iNoOfThreads, GenericPool<Fragment,Ligand> pool) {
@@ -62,11 +60,11 @@ final class ThreadingGlobOpt {
 
   void doGlobOpt() {
     final ExecutorService threadpool = Executors.newFixedThreadPool(iThreads);
-    System.out.println("Start The Globopt:" );
+    if (this.conf.Debug) System.out.println("Start The Globopt:" );
     final Taboos taboos = Taboos.getReference();;
     long iRestartPos = 0;
     if (this.conf.bRestart) {
-      for (long i = 0; i < (long) this.iOffset; i++) {
+      for (long i = 0; i < (long) pool.getCurrentPoolSize(); i++) {
         if (iRestartPos < this.pool.getIndividualAtPosition((int) i).getID()) iRestartPos = this.pool.getIndividualAtPosition((int) i).getID();
         taboos.addTaboo(this.pool.getIndividualAtPosition((int) i));
       }
@@ -88,15 +86,18 @@ final class ThreadingGlobOpt {
           final LigandConfig lconf, final Taboos taboos) {
 
     return () -> {
+      if (pool.acceptableFitnessReached()) {return;}
       final List<Ligand> vParents = pool.getParents();
       final LigandGlobOpt globopt = new LigandGlobOpt(lconf);
       final Ligand lChild = globopt.doTheGlobOpt(position, vParents.get(0), vParents.get(1));
       boolean accepted;
 
       if (lChild != null) {
-        accepted = pool.addIndividual(lChild, lChild.getFitness());
+        Niche niche = null;
+        if (lconf.doNiching) niche = lconf.getNicheComputer().computeNiche(lChild);
+        accepted = pool.addIndividual(lChild, niche, lChild.getFitness());
         taboos.addTaboo(lChild);
-        if (accepted) System.out.println("Ligand" + position + "with Fitness " + lChild.getFitness() + " was added to pool!");
+        if (accepted) System.out.println("Ligand " + position + " with Fitness " + lChild.getFitness() + " was added to pool!");
       }
     };
   }

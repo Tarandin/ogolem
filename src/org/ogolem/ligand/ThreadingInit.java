@@ -40,6 +40,7 @@ package org.ogolem.ligand;
 import java.util.concurrent.*;
 import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.generic.genericpool.GenericPool;
+import org.ogolem.generic.genericpool.Niche;
 
 /**
  * A threading intial fill of Population and preopt Fragments.
@@ -119,9 +120,9 @@ final class ThreadingInits {
       final FitnessFunction fitness = new FitnessFunction(lConf);
       final double dFit = fitness.fitnessLigand(lLigand);
       lLigand.setFitness(dFit);
-
-      System.out.println("Add Ligand" + i + " to pool with Fitness " + dFit);
-      pool.addIndividualForced(lLigand, dFit);
+      Niche niche = null;
+      if (lConf.doNiching) niche = lConf.getNicheComputer().computeNiche(lLigand);
+      pool.addIndividualForced(lLigand, niche, dFit);
       taboos.addTaboo(lLigand);
     };
   }
@@ -160,7 +161,7 @@ final class ThreadingInits {
       if (!converged) System.err.println("Warning! Given Guest did not converge on its own! This is very Bad!");
       lConf.Guest.setRefEnergy(newCartes.getEnergy());
       lConf.Guest.setAllCharges(newCartes.getAllCharges());
-      lConf.Guest.buildEField(lConf.GOCAT);
+      lConf.Guest.buildEField(lConf.GOCAT, lConf.targetDipole);
     };
   }
 }

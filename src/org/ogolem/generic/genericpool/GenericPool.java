@@ -60,7 +60,7 @@ public class GenericPool<E, T extends Optimizable<E>>
     implements Serializable, Iterable<GenericPoolEntry<E, T>> {
 
   private static final long serialVersionUID = (long) 20211015;
-  private static final boolean DEBUG = true;
+  private static final boolean DEBUG = false;
 
   // the pool
   private final List<GenericPoolEntry<E, T>> geneticPool;
@@ -761,7 +761,6 @@ public class GenericPool<E, T extends Optimizable<E>>
         return currentSize;
       }
     }
-
     stats.registerIndividualNotAdded(individual.getID());
     return -10;
   }

@@ -55,23 +55,25 @@ import org.ogolem.generic.ContinuousProblem;
 public class Ligand extends ContinuousProblem<Fragment> {
   private static final long serialVersionUID = (long) 20300003;
 
-  private final Fragment Backbone;
-  private final ArrayList<Fragment> alSides;
-  public  final Guest Guest;
-  private double Fitness;
-  private double[] Dipole;
-  private double dGuestGrad;
-  private double dEnergy;
-  private double dComplexEnergy;
-  private String[] optimizedStructuresLigand, optimizedStructuresComplex;
+  private final Fragment Backbone;  // Structure to add the sidechains to
+  private final ArrayList<Fragment> alSides; // List of sidechains at Ligand
+  public  final Guest Guest; // Guest structure to test
+  private double Fitness; 
+  private double[] Dipole = null; // Dipole of the complete ligand
+  private double dGuestGrad; // Norm of Guest Gradient.  
+  private double dEnergy;  // total Energy of ligand
+  private double dComplexEnergy; // total energy of ligand plus guest
+  private double dCubeSize = 0; // diameter of larges atom
+  private String[] optimizedStructuresLigand, optimizedStructuresComplex; // optimized structures of ligand and complex
   private long id;
   private long fatherID;
   private long motherID;
   private short charge = 0;
   private short spin = 0;
   private int noOfAtoms;
-  private SimpleBondInfo sbiLigand = null;
+  private SimpleBondInfo sbiLigand = null; // boolean matrix of bonds between atoms.  
 
+  // Ligand constructure
   Ligand(final LigandConfig lconf) {
     this.Backbone = new Fragment(lconf.Back);
     this.noOfAtoms = this.Backbone.getNumOfAtoms();
@@ -83,8 +85,25 @@ public class Ligand extends ContinuousProblem<Fragment> {
       this.noOfAtoms += this.alSides.get(isides).getNumOfAtoms();
     }
     this.buildLigandBondInfo(lconf.dBlowBondsFac);
+    this.getCubeSize();
   }
 
+  // Ligand constructor with set of Sides
+  Ligand(final Fragment Backbone, final Fragment[] fragSides, final Guest guest, final int[] iSides, double dBlowBondFac) {
+    this.Backbone = new Fragment(Backbone);
+    this.noOfAtoms = Backbone.getNumOfAtoms();
+    this.Guest = new Guest(guest);
+    this.Fitness = -1.0;
+    this.alSides = new ArrayList<Fragment>();
+    for (int iXC = 0; iXC < this.Backbone.getNumXCPos(); iXC++) {
+      alSides.add(new Fragment(fragSides[iSides[iXC]], this.Backbone, iXC));
+      this.noOfAtoms += this.alSides.get(iXC).getNumOfAtoms();
+    }
+    this.buildLigandBondInfo(dBlowBondFac);
+    this.getCubeSize();
+  }
+
+  // copy constructure
   Ligand(final Ligand source) {
     this.id = source.id;
     this.fatherID = source.fatherID;
@@ -106,6 +125,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     this.optimizedStructuresComplex = source.optimizedStructuresComplex;
     this.Dipole = source.getDipole();
     this.sbiLigand = source.getLigandBondInfo();
+    this.dCubeSize = source.getCubeSize();
   }
 
   public void printLigand(String File) {
@@ -157,6 +177,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return LigandXYZ;
   }
 
+  // TODO Use system.arraycopy instead of creating an XYZ file contend to cast into a n cartesian object
   public CartesianCoordinates getLigandCartesians() throws InitIOException, CastException {
     int startAtoms = 0;
     int noOfAtoms = this.Backbone.getNoOfAtoms();
@@ -170,6 +191,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return fullLigand;
   }
 
+  // TODO see above
   public CartesianCoordinates getComplexCartesians() throws InitIOException, CastException {
     int nAtoms = this.noOfAtoms + this.Guest.getNoOfAtoms();
     String[] sCartes = this.getPrintableComplex();
@@ -182,6 +204,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return fullComplex;
   }
 
+  // Get the carge of every atom as an float array
   private float[] getChargeArray(boolean isComplex) {
     int nAtoms = this.noOfAtoms;
     int startAtoms = 0;
@@ -210,6 +233,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return this.spin;
   }
 
+  // get all atom types of ligand as String array
   private String[] getAtomTypes(boolean addedGuest) {
     int iAtomsToCopy = this.Backbone.getNoOfAtoms();
     int iOffset = 0;
@@ -227,6 +251,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return sAtomTypes;
   }
 
+  // get total charge of Ligand as float 
   private float getLigandCharge() {
     float realCharge = this.Backbone.getCharge();
     for (int iSides = 0; iSides < this. alSides.size(); iSides++) {
@@ -235,10 +260,12 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return realCharge;
   }
 
+  // get total charge of full complex as float
   private float getComplexCharge() {
     return this.getLigandCharge() + this.Guest.getTotalCharge();
   }
 
+  // Not really used till now, should get the total spin as short
   private short getLigandSpin() {
     this.spin = this.Backbone.getSpin();
     for (int iSides = 0; iSides <this. alSides.size(); iSides++) {
@@ -251,6 +278,10 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return (short)(this.getLigandSpin() + this.Guest.getSpin());
   }
 
+  // Build an unique identifying integer Object.
+  // Uses the number of used sidegroups n and the nuber of exchangeable groups x
+  // res = \sum_i=0^x n_i * n^i 
+  // n_i is the idex of the group at i
   public Integer getSidesCode() {
     Integer res = 0;
     int tmp;
@@ -264,12 +295,15 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return res;
   }
 
+  // store the optimized data without loosing the inital structure
+  // for printing after the run, nothing else at the moment
   public void setOptimizedData(
       CartesianCoordinates cartesLigand, CartesianCoordinates cartesComplex) {
     this.optimizedStructuresLigand = cartesLigand.createPrintableCartesians();
     this.optimizedStructuresComplex = cartesComplex.createPrintableCartesians();
   }
 
+  // Print optimized data
   public void printOptimizedIndividual(String prefix, int iRank) throws Exception {
     String sFile = prefix + iRank + "ligand" + this.getID() + ".xyz";
     if (this.optimizedStructuresLigand == null) System.err.println("No String given for Ligand!");
@@ -283,10 +317,14 @@ public class Ligand extends ContinuousProblem<Fragment> {
     }
   }
 
+  // Every possible fragment is assigned an ID, which can be excessed here
+  // The ID is the index with the initial array of possible groups
   public int getFragID(int iside) {
     return this.alSides.get(iside).getID();
   }
 
+  // Get array of all FragIDs. This info with die inital Fragment list and the scarfold would be enough to build the
+  // Ligand. Is Used for crossover and mutation.
   public int[] getFragIDList() {
     int res[] = new int[this.alSides.size()];
     for (int iside = 0; iside < this.alSides.size(); iside++) {
@@ -295,6 +333,8 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return res;
   }
 
+  // Use the modifyed FragIDList to build a new ligand.
+  // just modifys a copy of the parents, so some work can be skipped
   public void setSides(int[] iSetupIDs, Fragment FragList[]) {
     for (int isides = 0; isides < iSetupIDs.length; isides++) {
       if (iSetupIDs[isides] == this.getFragID(isides)) {
@@ -305,6 +345,8 @@ public class Ligand extends ContinuousProblem<Fragment> {
     this.sbiLigand = null; // just to be sure
   }
 
+  // Build a random Ligand as part of the initialization of the GA
+  // Just pick a random Fragment from a List to add to the ligand for ever exchangeable position
   public void randomizeSides(LigandConfig lConf) {
     final Random random = new Random();
     final int nSides = lConf.Sides.length;
@@ -317,12 +359,15 @@ public class Ligand extends ContinuousProblem<Fragment> {
     this.buildLigandBondInfo(lConf.dBlowBondsFac);
   }
 
+  // Pricise change of a single side group 
   private void exchangeSide(final Fragment newSide, int where) {
     this.noOfAtoms -= this.alSides.get(where).getNumOfAtoms();
     this.alSides.set(where, new Fragment(newSide, this.Backbone, where));
     this.noOfAtoms += newSide.getNumOfAtoms();
   }
 
+  // evaluate the number of Atoms
+  // Used after the first initialzation of the first Ligand
   public void evalNoOfAtoms() {
     int res = this.Backbone.getNumOfAtoms();
     for (int isides = 0; isides < this.alSides.size(); isides++) {
@@ -355,6 +400,9 @@ public class Ligand extends ContinuousProblem<Fragment> {
     this.Dipole = dDipole.clone();
   }
 
+  // Use the current atomic charges to approximate the Dipole with the COM as origin
+  // This is a very crude approximation, but a general treand can be extracted
+  // The charges are taken from the preopt of all fragments and the backbone as indiviual molecules
   public double[] approxDipole() {
     double[] resDipole = new double[3];
     double[][] fragXYZ = this.Backbone.getCartes().getAllXYZCoord();
@@ -380,6 +428,13 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return dComplexEnergy;
   }
 
+  // get size of a cube, with would fit the largest atom in the ligand (without guest)
+  public double getCubeSize() {
+    if (this.dCubeSize == 0) this.buildCubeSize();
+    return this.dCubeSize;
+  }
+
+  // Util for printing the final output
   public String getInfoLine() {
     String res = org.ogolem.ligand.LittleHelpers.fixedLength(" " + this.id, 10);
     res += org.ogolem.ligand.LittleHelpers.fixedLength(" " + this.fatherID, 10);
@@ -392,84 +447,243 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return res;
   }
 
-  private double[] getOpenPath() {
-    int[] nCubes = new int[3];
-    double[] res = new double[3];
-    double[][] dimension = new double[3][2];
-    double dimCube = 1.2;
-    int[] nCellsGuest = new int[3];
+  // check, if a path exisits, where the guest could leave the ligand
+  // the ligand is repesented as a grid of booleans. Every gridpoint as the same dimensions
+  // this uses some conservative approximation:
+  //    - All atoms block the same space as the largest atom
+  //    - it does not matter, how much space of the point is occupied, if it is touched, its blocked!
+  //    - the Guest is reprisented as a cube, all sides are treaded as the longest
+  // Therefore, if a path is found, it is garenteed, that there is enough space!
+  public boolean findReleasePath() {
+    boolean[][][] bPathMace = this.buildPathMatrix();
+    double dDimeter = this.Guest.getMaxDimeter();
+    int iDimeter = (int) (dDimeter / this.dCubeSize) + 1;
+    int[] iDimCell = new int[3];
+    iDimCell[0] = bPathMace.length;
+    iDimCell[1] = bPathMace[0].length;
+    iDimCell[2] = bPathMace[0][0].length;
+    int[] iCenter = new int[3];
+    int[] iPos = new int[3];
+    int isgn = 1;
     for (int iDir = 0; iDir < 3; iDir++) {
-      nCellsGuest[iDir] = (int) ((2*dimCube + this.Guest.getDimeter()[iDir])/dimCube);
+      iCenter[iDir] = (int) (iDimCell[iDir] / 2);
     }
-    double[][] xyzCoords = this.Backbone.getCartes().getAllXYZCoord();
+    if (!this.isPosValid(iCenter, iDimeter, bPathMace)) return false;
+    // If the position is valid and the guest is alredy at the edge, we are alredy done
+    // This could be the case for 2D Host structures!
     for (int iDir = 0; iDir < 3; iDir++) {
-      for (int iAtom = 0; iAtom < xyzCoords[0].length; iAtom++) {
-        if (dimension[iDir][0] > xyzCoords[iDir][iAtom]) {
-          dimension[iDir][0] = xyzCoords[iDir][iAtom];
-        } else if (dimension[iDir][1] < xyzCoords[iDir][iAtom]) {
-          dimension[iDir][1] = xyzCoords[iDir][iAtom];
+      if (iDimCell[iDir] < 3) return true;
+    }
+    MainLoop:
+    for (int iDir = 0; iDir < 6; iDir++) {
+      if (iDir == 3) isgn = -1;
+      iPos = iCenter.clone();
+      StepLoop:
+      for (int iStep = 0; iStep < 1000; iStep++) {
+        iPos[iDir % 3] += isgn;
+        if (!this.isPosValid(iPos, iDimeter, bPathMace)) {
+          iPos[iDir % 3] -= isgn;
+          iPos[(iDir + 1) % 3] += isgn;
+        } else {
+          if (iPos[iDir % 3] == 0) break StepLoop;
+          if (iPos[iDir % 3] == iDimCell[iDir % 3] -1) break StepLoop;
+          continue;
+        }
+        if (!this.isPosValid(iPos, iDimeter, bPathMace)) {
+          iPos[(iDir + 1) % 3] -= isgn;
+          iPos[(iDir + 2) % 3] += isgn;
+        } else {
+          if (iPos[(iDir + 1)  % 3] == 0) break StepLoop;
+          if (iPos[(iDir + 1) % 3] == iDimCell[(iDir + 1) % 3] -1) break StepLoop;
+          continue;
+        }
+        if (!this.isPosValid(iPos, iDimeter, bPathMace)) {
+          iPos[(iDir + 2) % 3] -= isgn;
+          iPos[(iDir + 1) % 3] -= isgn;
+        } else {
+          if (iPos[(iDir + 2) % 3] == 0) break StepLoop;
+          if (iPos[(iDir + 2) % 3] == iDimCell[(iDir + 2) % 3] -1) break StepLoop;
+          continue;
+        }
+        if (!this.isPosValid(iPos, iDimeter, bPathMace)) {
+          iPos[(iDir + 1) % 3] += isgn;
+          iPos[(iDir + 2) % 3] -= isgn;
+        } else {
+          if (iPos[(iDir + 1)  % 3] == 0) break StepLoop;
+          if (iPos[(iDir + 1)  % 3] == iDimCell[(iDir + 1) - 1]) break StepLoop;
+          continue;
+        }
+        if (!this.isPosValid(iPos, iDimeter, bPathMace)) continue MainLoop;
+        if (iPos[(iDir + 2) % 3] == 0) break StepLoop;
+        if (iPos[(iDir + 2) % 3] == iDimCell[(iDir + 2) % 3] - 1) break StepLoop;
+        if (iStep == 999) continue MainLoop;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Test, if the guest could occupy the space by searching for a configuration, which includes the center point
+  // and where is enough empty space to fit the guest
+  private boolean isPosValid(int[] iCenterPos,int iDimeter, boolean[][][] bPathMace) {
+    if (bPathMace[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]]) return false;
+    int[] iStartPos;
+    int[] iPos;
+    int iHalfD = (int) iDimeter / 2;
+    OuterLoop:
+    for (int iStartX = 0; iStartX < iDimeter; iStartX++) {
+      iStartPos = iCenterPos.clone();
+      iStartPos[0] += iStartX - iHalfD;
+      iStartPos[1] -= iHalfD;
+      iStartPos[2] -= iHalfD;
+      for (int iStartY = 0; iStartY < iDimeter; iStartY++) {
+        iStartPos[1]++;
+        iStartPos[2] = iCenterPos[2] - iHalfD;
+        InnerLoop:
+        for (int iStartZ = 0; iStartZ < iDimeter; iStartZ++) {
+          iStartPos[2]++;
+          for (int iX = 0; iX < iDimeter; iX++) {
+            iPos = iStartPos;
+            iPos[0] += iX - iHalfD;
+            iPos[1] -= iHalfD;
+            iPos[2] -= iHalfD;
+            if (iPos[0] < 0) continue;
+            if (iPos[0] >= bPathMace.length - 1) break;
+            for (int iY = 0; iY < iDimeter; iY++) {
+              iPos[2] = iStartPos[2] - iHalfD;
+              if (iPos[1] < 0) {
+                iPos[1]++;
+                continue;
+              }
+              if (iPos[1] >= bPathMace[0].length - 1) break;
+              for (int iZ = 0; iZ <= iDimeter; iZ++) {
+                if (iPos[2] < 0) {
+                  iPos[2]++;
+                  continue;
+                }
+                if (iPos[2] >= bPathMace[0][0].length -1) break;
+                if(bPathMace[iPos[0]][iPos[1]][iPos[2]]) break InnerLoop;
+                iPos[2]++;
+              }
+              iPos[1]++;
+            }
+          }
+          return true;
         }
       }
-      nCubes[iDir] = (int) ((2 * dimCube + dimension[iDir][1] - dimension[iDir][0]) / dimCube);
     }
-    boolean[][][] cubeMatrix = new boolean[nCubes[0]][nCubes[1]][nCubes[2]];
-    int idX, idY, idZ, idID;
-    for (int iAtom = 0; iAtom < xyzCoords[0].length; iAtom++) {
-      idX = (int) ((xyzCoords[0][iAtom]+dimension[0][0])/dimCube);
-      idY = (int) ((xyzCoords[1][iAtom]+dimension[1][0])/dimCube);
-      idZ = (int) ((xyzCoords[2][iAtom]+dimension[2][0])/dimCube);
-      for (int i = -1; i < 2; i++) {
-        if (idX + i < 0 || idX + i > nCubes[0] - 1) continue;
-        if (idY + i < 0 || idY + i > nCubes[1] - 1) continue;
-        if (idZ + i < 0 || idZ + i > nCubes[2] - 1) continue;
-        cubeMatrix[idX + i][idY + i][idZ + i] = true;
+    return false;
+  }
+
+  // Build the cubesize of the boolean representation of the ligand
+  // Just take the largest dimeter of an ato within the ligand
+  private void buildCubeSize() {
+    int nAtoms = this.getNumOfAtoms();
+    double[] dRadii = new double[nAtoms];
+    String[] sAtomTypes = this.getAtomTypes(false);
+    this.dCubeSize = 0;
+    //get Radii of all atoms and use larges Atom Diameter as dCubeSize!
+    for (int iAtom = 0; iAtom < nAtoms; iAtom++) {
+      dRadii[iAtom] = org.ogolem.core.AtomicProperties.giveRadius(sAtomTypes[iAtom]);
+      if (dRadii[iAtom] * 2 > this.dCubeSize) this.dCubeSize = 2 * dRadii[iAtom];
+    }
+  }
+
+  // build a boolean representation of the free space of the ligand
+  // use the largest atom to define the size of each gridpoint
+  // set all partially occupied point to true
+  private boolean[][][] buildPathMatrix() {
+    int iOffset = 0;
+    int nAtoms = this.getNumOfAtoms();
+    int[] iSideStep = new int[3];
+    int[] iDimCell = new int[3];
+    int[] iCenterPos = new int[3];
+    double[] dRadii = new double[nAtoms];
+    double[] dCenterPos = new double[3];
+    double[][] dDimCell = new double[3][2];
+    double[][] XYZ = new double[3][nAtoms];
+    double[][] tmpXYZFrag = this.Backbone.getCartes().getAllXYZCoord();
+    boolean[][][] bPathMatrix;
+    String[] sAtomTypes = this.getAtomTypes(false);
+    // Build XYZ of Ligand for continoues useage
+    for (int iDir = 0; iDir < 3; iDir++) {
+      System.arraycopy(tmpXYZFrag[iDir], 0, XYZ[iDir], 0, this.Backbone.getNoOfAtoms());
+    }
+    iOffset += this.Backbone.getNoOfAtoms();
+    for (Fragment side : this.alSides) {
+      tmpXYZFrag = side.getCartes().getAllXYZCoord();
+      for (int iDir = 0; iDir < 3; iDir++) {
+        System.arraycopy(tmpXYZFrag[iDir], 0, XYZ[iDir], iOffset, side.getNoOfAtoms());
       }
+      iOffset += side.getNoOfAtoms();
     }
-    boolean blocked = false, atEnd = false;
-    idX = (int) nCubes[0]/2;
-    idY = (int) nCubes[1]/2;
-    idZ = (int) nCubes[2]/2;
-    idID = 1;
-    int[] center = new int[] {idX, idY, idZ};
-    assert(!cubeMatrix[idX][idY][idZ]);
-    while (!blocked) {
-      for (int dX = idID; dX >= -1 * idID; dX--) {
-        for (int dY = idID - Math.abs(dX); dY >= -1 * (idID - Math.abs(dX)); dY --) {
-          idX = (int) nCubes[0]/2 + dX;
-          idY = (int) nCubes[1]/2 + dY;
-          idZ = (int) nCubes[2]/2 + idID - (dY + dX); 
-          if (cubeMatrix[idX][idY][idZ]) {
-            blocked = true;
-            break;
+
+    if (this.dCubeSize == 0) this.buildCubeSize();
+    
+    // Find larges values for x,y and z. This will define our searchspace!
+    for (int iDir = 0; iDir < 3; iDir++) {
+      dDimCell[iDir][0] = Double.POSITIVE_INFINITY;
+      dDimCell[iDir][1] = Double.NEGATIVE_INFINITY;
+      for (int iAtom = 0; iAtom < nAtoms; iAtom++) {
+        if (XYZ[iDir][iAtom] < dDimCell[iDir][0]) dDimCell[iDir][0] = XYZ[iDir][iAtom];
+        if (XYZ[iDir][iAtom] > dDimCell[iDir][1]) dDimCell[iDir][1] = XYZ[iDir][iAtom];
+      }
+      dDimCell[iDir][0] -= this.dCubeSize / 2;
+      dDimCell[iDir][1] += this.dCubeSize / 2;
+    }
+
+    // get number of Cells within the boolean matrix. True for blocked, false if free
+    for (int iDir = 0; iDir < 3; iDir++) {
+      iDimCell[iDir] = (int) ((dDimCell[iDir][1] - dDimCell[iDir][0]) / this.dCubeSize) + 1;
+    }
+    bPathMatrix = new boolean[iDimCell[0]][iDimCell[1]][iDimCell[2]];
+
+    // All occupied Cubes are marked as blocked, so this will be a more conservativ approximation
+    // If an atom is close to an edge, it could be in multiple cubes. This check are quite ugly, but should 
+    // capture all cases.
+    for (int iAtom = 0; iAtom < nAtoms; iAtom++) {
+      for (int iDir = 0; iDir < 3; iDir++) {
+        dCenterPos[iDir] = XYZ[iDir][iAtom] - dDimCell[iDir][0];
+        iCenterPos[iDir] = (int) (dCenterPos[iDir] / this.dCubeSize);
+      }
+      bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
+      // Get the ditance to the edge and see, if it will reach over a border
+      for (int iDir = 0; iDir < 3; iDir++) {
+        if (iCenterPos[iDir] * this.dCubeSize - dCenterPos[iDir] > this.dCubeSize - dRadii[iAtom]) {
+          if (iCenterPos[iDir] > 0) {
+            iCenterPos[iDir]--;
+            bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
+            iSideStep[iDir] = -1;
           }
-          idZ = (int) nCubes[2]/2 - idID + (dY + dX);
-          if (cubeMatrix[idX][idY][idZ]) {
-            blocked = true;
-            break;
+        } else if (iCenterPos[iDir] * this.dCubeSize - dCenterPos[iDir] < dRadii[iAtom]) {
+          if (iCenterPos[iDir] < iDimCell[iDir] - 1) {
+            iCenterPos[iDir]++;
+            bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
+            iSideStep[iDir] = 1;
+          } else {
+            iSideStep[iDir] = 0;
           }
+        } else {
+          iSideStep[iDir] = 0;
         }
       }
-      if (blocked) {
-        idID--;
-      } else {
-        idID++;
+      // Since we do the edgetest step by step, some parts are missing if multiple edges are crossed. This should fix
+      // that.
+      if (iSideStep[2] != 0) {
+        if (iSideStep[1] != 0) {
+          iCenterPos[1] -= iSideStep[1];
+          bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
+        }
+        if (iSideStep[0] != 0) {
+          iCenterPos[0] -= iSideStep[0];
+          bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
+        }
+      } else if (iSideStep[1] != 0 && iSideStep[2] != 0) {
+        iCenterPos[0] -= iSideStep[0];
+        bPathMatrix[iCenterPos[0]][iCenterPos[1]][iCenterPos[2]] = true;
       }
     }
-    blocked = false;
-    while (!blocked && !atEnd) {
-      blocked = cubeMatrix[idX][idY][idZ];
-      if (idX == nCubes[0] -1 || idY == nCubes[1] -1 || idZ == nCubes[2] -1) atEnd = true;
-      if (idX == 0 || idY == 0 || idZ == 0) atEnd = true;
-      if (blocked) {
-        // Change Path: othogonal steps until way is free, then find path back to center
-        // next coord, if not sucessfull
-      } else {
-        // Check suroundings if dimensions are sufficient
-      }
-      // Set idX/idY/idZ to most advanced point check max(abs(idX-center)+abs(idY-center)+abs(center(idZ))
-    }
-    if (blocked) System.err.println("No Path is viable. This will not be a Catalyst.");
-    return res;
+    return bPathMatrix;
   }
 
   private SimpleBondInfo getLigandBondInfo() {
@@ -477,6 +691,10 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return this.sbiLigand;
   }
 
+  // build the wanted bond info for the ligand.
+  // the side goups should only be connected by the exchangepoint
+  // all other bond should be preserved.
+  // This is used to notice unstable structures, where the fractured parts will converge is the SCF process
   public void buildLigandBondInfo(double dBlowBonds) {
     SimpleBondInfo BondInfo = new SimpleBondInfo(this.getNumOfAtoms());
     SimpleBondInfo tmpSBI = this.Backbone.getBondInfo(dBlowBonds);
@@ -506,6 +724,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return this.sbiLigand.hasBond(iatom, jatom);
   }
 
+  // Just Debug info
   public void printSBI(String sFile) {
     String[] saData = new String[this.getNumOfAtoms() + 1];
     saData[0] = this.getNumOfAtoms() + "   " + this.getID();
@@ -566,6 +785,8 @@ public class Ligand extends ContinuousProblem<Fragment> {
     return bCollision;
   }
 
+  // Rotate side groups to remove collisons
+  // this should reduce the number of failed or long QM calculations and therfore speed things up
   public boolean removeCollisions(double dBlowBonds) {
     if (this.alSides == null) return false; // nothing is here to collide, nothing at all for anything
     for (int iSide = 0; iSide < this.alSides.size(); iSide++) {

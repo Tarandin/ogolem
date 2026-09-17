@@ -43,4 +43,5 @@ interface LocalOptimization {
 
   CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int id, Ligand Lig);
   boolean doSinglePoint(final CartesianCoordinates cartes, final int id, Ligand Lig);
+  CartesianCoordinates propagateGuest(final CartesianCoordinates cartes, final int id, Ligand lig);
 }

@@ -48,4 +48,5 @@ public final class FixedValues {
   public static final double BADANGLE = 5000.0;
   public static final double BADDIPOLE = 25000000.0;
   public static final double BADSTRUCTURE = 100000000;
+  public static final double NORELEASEPTH = 500.0;
 }

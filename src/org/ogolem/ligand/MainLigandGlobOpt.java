@@ -157,6 +157,7 @@ public class MainLigandGlobOpt {
 
     ThreadingInits ThreadInt = new ThreadingInits(lConf, noThreads);
     ThreadInt.initializeFragments();
+    if (lConf.buildRefFitness() && lConf.Debug) System.out.println("RefFitness=" + lConf.dRefFitness);
 
     final Ligand refLigand = new Ligand(lConf);
     

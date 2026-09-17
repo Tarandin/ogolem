@@ -51,6 +51,7 @@ public final class FitnessFunction {
   private double lengthTargetDipole;
   private double freeGuestEnergy;
   private double dBlowBondsFac;
+  private double dRefFitness = 0;
   private boolean[] isGuestBound;
   private Guest Guest;
   private final short guestCharge;
@@ -89,6 +90,7 @@ public final class FitnessFunction {
     this.dGradPen = lConf.dGradPen;
     this.bDebug = lConf.Debug;
     this.dBlowBondFac = lConf.dBlowBondsFac;
+    this.dRefFitness = lConf.dRefFitness;
     if (this.dBindPen > 0) this.doBinding = true;
     if (this.dDipolePen > 0) this.doDipole = true;
     if (this.dChargePen > 0) this.doCharge = true;
@@ -100,20 +102,25 @@ public final class FitnessFunction {
 
     double dFitness = 0;
     double[] dApproxDip = new double[3];
+    double dApproxDipLen = 0;
     final float ligCharge = lig.getCharge();
     final CartesianCoordinates alCartes[] = new CartesianCoordinates[2];
 
-    //If Ligands are too bulky, the will alloways collide and just be bad, 
+    //If Ligands are too bulky, the will always collide and just be bad,
+    //Just filter them out before any QM is done!
     if (!lig.removeCollisions(this.dBlowBondsFac)) return FixedValues.BADSTRUCTURE;
+
     // If monopole charge works against our efford, the dipole will not help... 
     if (this.guestCharge != 0 && Math.abs(lig.getCharge()) >= 1) {
       if (Math.signum(this.guestCharge) == Math.signum(ligCharge)) return FixedValues.UNBOUND + ligCharge * ligCharge * this.dChargePen;
     }
 
+    // Construct a dipole with a very cruede approximation
+    // Just to make sure, do destigish different kindes of bad structures, so at least the dipole is moving in the right
+    // direction!
     if (this.doDipole) {
       dApproxDip = lig.approxDipole();
-      //lig.Guest.alignWithDipole(this.targetDipole, dApproxDip); // Find best Fitting configuration
-      double dApproxDipLen = org.ogolem.ligand.VectorUtils.getNorm(dApproxDip);
+      dApproxDipLen = org.ogolem.ligand.VectorUtils.getNorm(dApproxDip);
       dFitness += this.dDipolePen * (this.lengthTargetDipole - dApproxDipLen) * (this.lengthTargetDipole - dApproxDipLen); 
     }
 
@@ -121,24 +128,32 @@ public final class FitnessFunction {
       alCartes[0] = lig.getLigandCartesians();
     } catch (InitIOException e1) {
       System.err.println("ERROR: Could not build Structure from Fragments! " + e1.toString());
-      return FixedValues.BADENERGY;
+      return dFitness + FixedValues.BADENERGY;
     } catch (CastException e2) {
       System.err.println("ERROR: Could not parse glued Structure to Coordinates! " + e2.toString());
-      return FixedValues.BADENERGY;
+      return dFitness + FixedValues.BADENERGY;
     }
 
     final CartesianCoordinates fullLigand =
         this.locopt.doLocOpt(alCartes[0], (int) lig.getID(), lig);
 
     if (fullLigand == null) return dFitness + FixedValues.BADENERGY;
+    // We don't want additional bonds or bond breaking within the locopt! 
     boolean isSane = this.areBondsSane(fullLigand, lig);
 
     // Prepare Complex structure…
     if (!isSane) {
       dFitness += FixedValues.BADENERGY;
-    } else {
-      lig.Guest.alignWithDipole(this.targetDipole, lig.getDipole());
       try {
+        alCartes[1] = lig.getComplexCartesians(); //DEBUG REMOVE LATER!
+      } catch (Exception e) {
+        // 
+      }
+    } else {
+      // Maximize the projection of the ligand dipole on the target dipole by rotaton the guest.
+      // Now only the length of both vectors are different!
+      try {
+        if (doDipole) lig.Guest.alignWithDipole(this.targetDipole, lig.getDipole());
         alCartes[1] = lig.getComplexCartesians();
       } catch (InitIOException e1) {
         System.err.println("ERROR: Could not build Structure from Fragments! " + e1.toString());
@@ -149,6 +164,8 @@ public final class FitnessFunction {
         doBinding = false;
         dFitness += FixedValues.UNBOUND;
       }
+      // Use the optimized structure of the ligand as a starting point!
+      // Therefore, we need to copy the optimized structure into the complex
       double[][] tmpXYZComplex = alCartes[1].getAllXYZCoord();
       double[][] tmpXYZLigand = fullLigand.getAllXYZCoord();
 
@@ -163,16 +180,23 @@ public final class FitnessFunction {
     CartesianCoordinates fullComplex = null;
     double dDeltaE = 0;
     
+    // Only calculate the complex if it is needed for the requested fitnessfunction!
     if (doBinding) {
-      if (!this.locopt.doSinglePoint(alCartes[1], (int) lig.getID(), lig)) dFitness += FixedValues.UNBOUND;
-      dDeltaE = alCartes[1].getEnergy() - fullLigand.getEnergy() - this.freeGuestEnergy;
+      // Start with just a single point!
+      if (!this.locopt.doSinglePoint(alCartes[1], (int) lig.getID(), lig)) {
+        isSane = false;
+      } else {
+        dDeltaE = alCartes[1].getEnergy() - fullLigand.getEnergy() - this.freeGuestEnergy;
+      }
       // Two geoopt are too expensiv if done every time. But Results improve significantly
       // Therefore, we want to do the secound one only for already promising candidates...
-      if (dDeltaE < 0.5 && isSane) {
+      if (dDeltaE < 0.1 && isSane) {
         fullComplex = this.locopt.doLocOpt(alCartes[1], (int) lig.getID(), lig);
         if (!this.areBondsSane(fullComplex, lig)) {
           dFitness += FixedValues.UNBOUND;
           fullComplex = alCartes[1];
+        } else {
+          fullComplex = this.locopt.propagateGuest(alCartes[1], (int) lig.getID(), lig);
         }
       } else {
         fullComplex = alCartes[1];
@@ -180,6 +204,7 @@ public final class FitnessFunction {
       }
     }
 
+    // Geoopt was not succsessfull, the Guest was not bound
     if (fullComplex == null) {
       if (doBinding) dFitness += FixedValues.UNBOUND;
       fullComplex = alCartes[1];
@@ -187,12 +212,14 @@ public final class FitnessFunction {
 
     int chargeComplex = 0;
     if (doBinding) {
-      chargeComplex = fullComplex.getTotalCharge(); //alCartes[1].getTotalCharge();
+      chargeComplex = fullComplex.getTotalCharge();
     } else {
       chargeComplex = fullLigand.getTotalCharge() + (int) this.Guest.getCharge(); 
     }
-    lig.setOptimizedData(fullLigand, fullComplex); // alCartes[1]);
+    lig.setOptimizedData(fullLigand, fullComplex);
 
+    // build a crude approximation of the binding konstant without vibrational components
+    // pK \approx log_10 (exp (- dE / k_b T)), where k_b is 1 in atomic units!
     double dK = 0;
     if (doBinding && isSane) {
       dDeltaE = fullComplex.getEnergy() - fullLigand.getEnergy() - this.freeGuestEnergy;
@@ -200,49 +227,71 @@ public final class FitnessFunction {
       if (dDeltaE > 0 ) {
         dFitness += Math.min(this.dBindPen * dK * dK, FixedValues.UNBOUND);
       } else {
-        dFitness -= this.dBindPen * dK;
+        // In context for catalysis, the structure should be releasable and not bound for all eternity…
+        dFitness -= this.dBindPen * dK * Math.exp(-1 * dK * dK / 16);
       }
     }
 
     double dDipPen = 0;
+    double dDeltaDipole = 0;
+    // since we rotated the guest, the acctual dipole is aligned with the target
+    // We just can take the difference in length to get the difference
     if (doDipole) {
-      //lig.Guest.alignWithDipole(dApproxDip, this.targetDipole); // rotate it back to staring position...
-      double dDeltaDipole =
-          org.ogolem.ligand.VectorUtils.distance(lig.getDipole(), this.targetDipole);
+      // If we get this far, this term is not usefull anymore…
+      dFitness -= this.dDipolePen * (this.lengthTargetDipole - dApproxDipLen) * (this.lengthTargetDipole - dApproxDipLen);
+      lig.Guest.alignWithDipole(lig.getDipole(), this.targetDipole); // rotate it back to staring position...
+      dDeltaDipole = org.ogolem.ligand.VectorUtils.getNorm(lig.getDipole());
+      dDeltaDipole -= this.lengthTargetDipole;
       if (dDeltaDipole == 0.0) dDeltaDipole += 0.0001;  // Otherwise, the perfect score would give an error... 
-      double dAngle = org.ogolem.ligand.VectorUtils.getAngle(lig.getDipole(), this.targetDipole);
-      if (dAngle > 0) {
-        dDipPen = this.dDipolePen * dAngle / dDeltaDipole;
-      } else {
-        dDipPen = this.dDipolePen * dAngle * dDeltaDipole;
-      }
+      dDipPen = this.dDipolePen * dDeltaDipole * dDeltaDipole;
       if (Double.isNaN(dDipPen)) {
         dFitness += FixedValues.BADDIPOLE;  //Most likely, dDipole contains only zeros
       } else {
-        dFitness -= dDipPen; 
+        dFitness += dDipPen; 
       }
     }
    
+    // Get the Root mean square derivation of the electric field
+    // The partial charge of each atom is taken from QM calculation and is treated as a pointcharge
+    // This approximation is resonable for large distances (ca. 7 Angst)
     double dDiffEField = 0;
     if (doCharge) {
-      dDiffEField = lig.Guest.getRMSDOfField(fullLigand, 0);
+      dDiffEField = lig.Guest.getRMSDOfField(fullComplex, 0, lig.getDipole());
       if (dDiffEField == 0) dDiffEField += 0.0001;
-      dFitness -= 1/(dDiffEField * dDiffEField) * this.dChargePen;
-      dFitness += (chargeComplex - this.targetCharge) * (chargeComplex - this.targetCharge) * this.dChargePen;
+      dFitness += Math.min(dDiffEField * dDiffEField * this.dChargePen, FixedValues.BADDIPOLE);
+      dFitness += (chargeComplex - this.targetCharge) * (chargeComplex - this.targetCharge);
     }
 
+    // Large differences in structure between ligand and complex are used as a penelty
+    // Additionally, a large gradient shows a bad structurem which should be penetlised!
     double dStructure = 0;
     if (this.dGradPen > 0) {
       double dRMSDGuest = 0;
       double dRMSDLigandComplex = 0; 
       if (doBinding && dDeltaE < 0.1) {
         dRMSDLigandComplex += this.getStructureRMSD(fullLigand, fullComplex); // how much does the structure change
-        dRMSDGuest += lig.Guest.getRMSDToComplex(fullComplex); // is Guest in Place for cataysis. Not nessesary if EField is compaired!
+        if (doDipole && !doCharge) dRMSDGuest += lig.Guest.getRMSDToComplex(fullComplex); // is Guest in Place for cataysis. Not nessesary if EField is compaired!
       }
       dStructure +=
-         (dRMSDGuest + dRMSDLigandComplex + alCartes[1].getGradNorm()) * this.dGradPen;
+         (dRMSDGuest + dRMSDLigandComplex + fullComplex.getGradNorm()) * this.dGradPen;
       dFitness += dStructure;
     }
+
+    // search for a way out of the ligand for the guest. Add a penelty if non can be found!
+    double dPath = 0;
+    if (isSane && this.doBinding) {
+      try {
+        if (!lig.findReleasePath()) dPath = FixedValues.NORELEASEPTH;
+      } catch (Exception e) {
+        System.err.println("Could not search for Path!" + e.toString());
+        e.printStackTrace(System.err);
+        dPath += FixedValues.NORELEASEPTH;
+      }
+      dFitness += dPath;
+    }
+
+    // Just set the Ligand with only hydrogen atoms to zero
+    dFitness -= this.dRefFitness;
 
     if (this.bDebug) {
       String debugOutput = "****************************************************************************\n";
@@ -257,18 +306,26 @@ public final class FitnessFunction {
       debugOutput += "                   Charge Ligand: " + lig.getCharge() + "\n";
       if (doGrad) debugOutput += "                GRADIENT PENELTY: " + dStructure + "\n";
       if (doCharge) {
-        debugOutput += "                     RMSD EField: " + dDiffEField + "\n";
-        debugOutput += "                  Charge Complex: " + chargeComplex + "\n";
-        debugOutput += "                  Charge Penelty: " + ((chargeComplex - this.targetCharge) * (chargeComplex - this.targetCharge) - 1 / (dDiffEField * dDiffEField)) * this.dChargePen + "\n";
+        debugOutput += "            Reltaive RMSD EField: " + dDiffEField + "\n";
+        debugOutput += "                  Charge Penelty: " + ((chargeComplex - this.targetCharge) * (chargeComplex - this.targetCharge) + Math.min(dDiffEField * dDiffEField * this.dChargePen, FixedValues.BADDIPOLE)) + "\n";
       }
       if (doDipole) {
         debugOutput += "                  Dipole Penelty: " + dDipPen + "\n";
+        debugOutput += "     Approximated Dipole Penelty: " + this.dDipolePen * (this.lengthTargetDipole - dApproxDipLen) * (this.lengthTargetDipole - dApproxDipLen) + "\n";
         debugOutput += "                   Dipole Moment: " + lig.getDipole()[0] + "\t" + lig.getDipole()[1] + "\t" + lig.getDipole()[2] + "\n";
+        debugOutput += "              Distance to Target: " + dDeltaDipole + "\n";
+         debugOutput += "     Approximated Dipole Moment: " + dApproxDip[0] + "\t" + dApproxDip[1] + "\t" + dApproxDip[2] + "\n";
+        debugOutput += "              Distance to Target: " + (this.lengthTargetDipole - dApproxDipLen) + "\n";
       }
       if (doBinding) {
-        debugOutput += "                 Binding Penelty: " + this.dBindPen * dK + "\n";
+        if (dDeltaE < 0) {
+          debugOutput += "                 Binding Penelty: " + this.dBindPen * dK * Math.exp(-1 * dK * dK / 16) + "\n";
+        } else {
+          debugOutput += "                 Binding Penelty: " + Math.min(this.dBindPen * dK * dK, FixedValues.UNBOUND) + "\n";
+        }
         debugOutput += "                Binding Konstant: " + dK + "\n";
         debugOutput += "                  Binding Energy: " + dDeltaE + "\n";
+        debugOutput += "             Release Path Penety: " + dPath + "\n";
       }
       debugOutput += "****************************************************************************";
       System.out.println(debugOutput);

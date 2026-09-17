@@ -91,6 +91,16 @@ public final class LigandInput {
           System.err.println(
               "WARING: Couldn't cast integer choice for PoolSize, using default. " + e.toString());
         }
+      } else if (CurrentLine.startsWith("MaxIndividualsPerNiche=")) {
+        final String Temp = CurrentLine.substring(23).trim();
+        int maxIndPerNiche;
+        try {
+          maxIndPerNiche = Integer.parseInt(Temp);
+          config.maxIndividualsPerNiche = maxIndPerNiche;
+        } catch (Exception e) {
+          System.err.println(
+              "WARING: Couldn't cast integer choice MaxIndividualsPerNiche, using default. " + e.toString());
+        }
       } else if (CurrentLine.startsWith("NoOfGlobIters=")) {
         final String Temp = CurrentLine.substring(14).trim();
         int NoOfGlobIters;
@@ -134,6 +144,16 @@ public final class LigandInput {
           System.err.println(
               "WARINING: Couldn't cast boolean for Debug, using default. " + e.toString());
         }
+      } else if (CurrentLine.startsWith("Niching=")) {
+        final String Temp = CurrentLine.substring(8).trim();
+        boolean doNiching;
+        try {
+          doNiching = Boolean.parseBoolean(Temp);
+          config.doNiching = doNiching;
+        } catch (Exception e) {
+          System.err.println (
+              "WARINING: Couldn't cast boolean for doNiching, using default. " + e.toString());
+        }
       } else if (CurrentLine.startsWith("LocOptConstraints=")) {
         final String Temp = CurrentLine.substring(18).trim();
         boolean bLocOptConst;
@@ -175,6 +195,16 @@ public final class LigandInput {
         } catch (Exception e) {
           System.err.println(
               "WARNING: Couldn't cast double for FitnessDiversity, using default. " + e.toString());
+        }
+      } else if (CurrentLine.startsWith("AcceptableFitness=")) {
+        final String Temp = CurrentLine.substring(18).trim();
+        double AcceptableFitness;
+        try {
+          AcceptableFitness = Double.parseDouble(Temp);
+          config.acceptableFitness = AcceptableFitness;
+        } catch (Exception e) {
+          System.err.println(
+              "WARNING: Couldn't cast double for AcceptableFitness, using default. " + e.toString());
         }
       } else if (CurrentLine.startsWith("BlowBondDetect=")) {
         final String Temp = CurrentLine.substring(15).trim();
@@ -591,6 +621,66 @@ public final class LigandInput {
       throw new CastException("Unable to Parse Dipole.", e);
     }
     return adDipole;
+  }
+
+  static double[][] readMopacGuestGradient(String sMopacOutput, int iGuestAtoms) throws InitIOException, CastException {
+    boolean bSingleLine = false;
+    double[][] dGrad = new double[iGuestAtoms][3];
+    int iGradLine = -1;
+    String[] saData;
+    try {
+      saData = readFileIn(sMopacOutput);
+    } catch (Exception e) {
+      throw new InitIOException("Error in reading mopac's SP Output file, "+e.toString(),e);
+    }
+    for (int iLine = 0; iLine < saData.length; iLine++) {
+      if (saData[iLine].contains("FINAL  POINT  AND  DERIVATIVES")) {
+        iGradLine = iLine + 3;
+        if (saData[iLine].contains("Atom")) {
+          iGradLine += 2;
+          bSingleLine = true;
+        }
+        break;
+      }
+    }
+
+    if (iGradLine == -1) return null;
+
+    try {
+      dGrad = parseMopacFullGradient(saData, iGradLine, iGuestAtoms, bSingleLine);
+    } catch (CastException e) {
+      throw new CastException("Error while Casting Guest gradients!. " + e.toString());
+    }
+    return dGrad;
+  }
+
+  static double[][] parseMopacFullGradient(String[] saData, int iGradLine, int iAtoms ,boolean isSingleLine)
+    throws CastException {
+    double[][] dGrad = new double[iAtoms][3];
+    int iNumLines = iAtoms;
+    String[] splitLine;
+    if (!isSingleLine) iNumLines *= 3; 
+    for (int iLine = iGradLine; iLine < iGradLine + iNumLines; iLine++) {
+      splitLine = saData[iLine].trim().split("\\s+");
+      if (isSingleLine) {
+        try {
+          for (int iDir = 0; iDir < 3; iDir++) {
+            dGrad[iLine - iGradLine][iDir] = Double.parseDouble(splitLine[iDir + 2]);
+            dGrad[iLine - iGradLine][iDir] *= KCALTOHARTREE;
+          }
+        } catch (Exception e) {
+          throw new CastException("Could not Cast Double in Line " + saData[iLine] + ". " + e.toString());
+        }
+      } else {
+        try {
+          dGrad[(iLine - iGradLine) / 3][(iLine - iGradLine) % 3] = Double.parseDouble(splitLine[6]);
+          dGrad[(iLine - iGradLine) / 3][(iLine - iGradLine) % 3] *= KCALTOHARTREE; 
+        } catch (Exception e) {
+          throw new CastException("Could not Cast Double " + splitLine[6] + ". " + e.toString());
+        }
+      }
+    }
+    return dGrad;
   }
 
   static void removeFile(final String sToFilePath) throws InitIOException {
