@@ -63,6 +63,7 @@ public class MainLigandGlobOpt {
       System.out.println("Required arguments:");
       System.out.println(" * the input file (.ogo format)");
       System.out.println(" * the number of threads to be used");
+      System.exit(0);
     }
     int noThreads = 0;
     // Is the program called the way it is intended?
@@ -157,6 +158,10 @@ public class MainLigandGlobOpt {
 
     ThreadingInits ThreadInt = new ThreadingInits(lConf, noThreads);
     ThreadInt.initializeFragments();
+    if (lConf.Back.hasCollapsed()) {
+      System.err.println("ERROR: Backbone structure was not stable towards optimization!");
+      System.exit(114);
+    }
     if (lConf.buildRefFitness() && lConf.Debug) System.out.println("RefFitness=" + lConf.dRefFitness);
 
     final Ligand refLigand = new Ligand(lConf);
@@ -192,6 +197,7 @@ public class MainLigandGlobOpt {
       ThreadInt.setPool(pool);
       ThreadInt.fillInitialPool();
     }
+
     if (lConf.Debug) {
       try {
         org.ogolem.io.OutputPrimitives.createAFolder(lConf.OutputFolder + "/InitPool");

@@ -58,6 +58,8 @@ final class GermanyGlobOpt implements LigandDarwin {
 
   @Override
   public Ligand doTheGlobOpt(final long iID, final Ligand lMother, final Ligand lFather) {
+    assert(lMother != null);
+    assert(lFather != null);
     final ArrayList<Ligand> vChilds = Cross(lMother, lFather);
 
     final Ligand lOne = Mutate(vChilds.get(0));

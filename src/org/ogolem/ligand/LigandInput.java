@@ -144,6 +144,16 @@ public final class LigandInput {
           System.err.println(
               "WARINING: Couldn't cast boolean for Debug, using default. " + e.toString());
         }
+      } else if (CurrentLine.startsWith("useRefFit=")) {
+        final String Temp = CurrentLine.substring(10).trim();
+        boolean useRefFit;
+        try {
+          useRefFit = Boolean.parseBoolean(Temp);
+          config.useRefFit = useRefFit;
+        } catch (Exception e) {
+          System.err.println(
+              "WARNING: Couldn´t cast boolean for useRefFit, using default. " + e.toString());
+        }
       } else if (CurrentLine.startsWith("Niching=")) {
         final String Temp = CurrentLine.substring(8).trim();
         boolean doNiching;
@@ -175,7 +185,7 @@ public final class LigandInput {
         }
       } else if (CurrentLine.startsWith("RestartPool=")) {
         final String Temp = CurrentLine.substring(12).trim();
-        config.RestartPool=Temp;
+        config.RestartPool = Temp;
       } else if (CurrentLine.startsWith("AnyDiversityCheck=")) {
         final String Temp = CurrentLine.substring(18).trim();
         boolean AnyDivCheck;
@@ -185,6 +195,16 @@ public final class LigandInput {
         } catch (Exception e) {
           System.err.println(
               "WARNING: Couldn't cast boolean for AnyDivCheck, using default. " + e.toString());
+        }
+      } else if (CurrentLine.startsWith("doPreOpt=")) {
+        final String Temp = CurrentLine.substring(9).trim();
+        boolean doPreOpt;
+        try {
+          doPreOpt = Boolean.parseBoolean(Temp);
+          config.bPreOpt = doPreOpt;
+        } catch (Exception e) {
+          System.err.println(
+              "WARNING: Couldn't cast boolean for doPreOpt, useing default. " + e.toString());
         }
       } else if (CurrentLine.startsWith("FitnessDiversity=")) {
         final String Temp = CurrentLine.substring(17).trim();

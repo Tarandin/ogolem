@@ -228,6 +228,10 @@ public final class Fragment implements Serializable {
     return this.Cartes.getXYZCoordinatesOfAtom(xcpos);
   }
 
+  public void setAllCharges(float[] charges) {
+    this.Cartes.setAllCharges(charges);
+  }
+
   // store the index of all XC positions with an int array for easy access!
   private int[] BuildXCPositions() {
     final int natoms = this.Cartes.getNoOfAtoms();
@@ -433,5 +437,21 @@ public final class Fragment implements Serializable {
     org.ogolem.math.TrivialLinearAlgebra.matMult(rot, allXYZold, allXYZnew);
     this.Cartes.setAllXYZ(allXYZnew);
     this.Cartes.moveCoordsToPoint(xcPos);
+  }
+
+  public boolean hasCollapsed() {
+    if (this.NumXCPositions  < 2) return false; // This operation is only usefull for the backbone!
+    double[] com = this.Cartes.calculateTheCOM();
+    double[][] XYZ = this.Cartes.getAllXYZCoord();
+    double tmp, tmpDir;
+    for (int iAtom = 0; iAtom < XYZ[0].length; iAtom++) {
+      tmp = 0;
+      for (int iDir = 0; iDir < 3; iDir++) {
+        tmpDir = com[iDir] - XYZ[iDir][iAtom];
+        tmp += tmpDir * tmpDir;
+      }
+      if (Math.sqrt(tmp) < 2) return true;
+    }
+    return false;
   }
 }

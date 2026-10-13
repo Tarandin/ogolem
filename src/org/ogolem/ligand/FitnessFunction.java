@@ -69,6 +69,7 @@ public final class FitnessFunction {
   private final double dBindPen;
   private final double dGradPen;
   private final double dChargePen;
+  private final boolean bCompPreOpt;
   private final boolean bDebug;
   private int eFieldType = 1;
 
@@ -96,10 +97,12 @@ public final class FitnessFunction {
     if (this.dChargePen > 0) this.doCharge = true;
     if (this.dGradPen > 0) this.doGrad = true;
     this.eFieldType = lConf.iEFieldMethod;
+    this.bCompPreOpt = lConf.bPreOpt;
   }
 
   public double fitnessLigand(final Ligand lig) {
 
+    assert(lig != null);
     double dFitness = 0;
     double[] dApproxDip = new double[3];
     double dApproxDipLen = 0;
@@ -166,15 +169,19 @@ public final class FitnessFunction {
       }
       // Use the optimized structure of the ligand as a starting point!
       // Therefore, we need to copy the optimized structure into the complex
-      double[][] tmpXYZComplex = alCartes[1].getAllXYZCoord();
-      double[][] tmpXYZLigand = fullLigand.getAllXYZCoord();
+      // If the structure collapses and this is not a gamebreaker, we need to be able to take the original Starting
+      // Point!
+      if (this.bCompPreOpt) {
+        double[][] tmpXYZComplex = alCartes[1].getAllXYZCoord();
+        double[][] tmpXYZLigand = fullLigand.getAllXYZCoord();
 
-      int nLigAtoms = fullLigand.getNoOfAtoms();
+        int nLigAtoms = fullLigand.getNoOfAtoms();
 
-      for (int i = 0; i <  3; i++) {
-        System.arraycopy(tmpXYZLigand[i], 0, tmpXYZComplex[i],  0, nLigAtoms);
+        for (int i = 0; i <  3; i++) {
+          System.arraycopy(tmpXYZLigand[i], 0, tmpXYZComplex[i],  0, nLigAtoms);
+        }
+        alCartes[1].setAllXYZ(tmpXYZComplex);
       }
-      alCartes[1].setAllXYZ(tmpXYZComplex);
     }
 
     CartesianCoordinates fullComplex = null;
@@ -197,6 +204,7 @@ public final class FitnessFunction {
           fullComplex = alCartes[1];
         } else {
           fullComplex = this.locopt.propagateGuest(alCartes[1], (int) lig.getID(), lig);
+          if (areBondsSane(fullComplex, alCartes[1])) dFitness += FixedValues.BADCOMPLEX;
         }
       } else {
         fullComplex = alCartes[1];

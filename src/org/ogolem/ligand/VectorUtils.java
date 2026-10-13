@@ -79,6 +79,15 @@ public class VectorUtils {
     }
   }
 
+  public static void scaleMatrix(double[][] XYZ, final double dScale) {
+    assert(XYZ != null);
+    for (int i = 0; i < XYZ.length; i++) {
+      for (int j = 0; j < XYZ[0].length; j++) {
+        XYZ[i][j] *= dScale;
+      }
+    }
+  }
+
   public static double[] connectVec(final double[] StartVec, final double[] EndVec) {
     assert (StartVec.length == EndVec.length);
     double[] res = new double[EndVec.length];
@@ -206,17 +215,26 @@ public class VectorUtils {
     double CosAngle = getAngle(XCVec1, XCVec2);
     double Axis[] = new double[3];
     double[][] invertedXYZ = transpose(XYZ);
+    double[] CenterPos = invertedXYZ[center].clone();
     if (Math.abs(CosAngle * CosAngle - 1) > 1.0E-6) {
       Axis = crossProd(XCVec1, XCVec2);
     } else if (1.0 + CosAngle < 1.0E-6) {
+      scaleVec(CenterPos, -1);
+      translate(invertedXYZ, CenterPos);
+      scaleMatrix(invertedXYZ, -1.0); 
+      scaleVec(CenterPos, -1);
+      translate(invertedXYZ, CenterPos);
+      if (XCPos != null) translate(invertedXYZ, XCPos);
+      return transpose(invertedXYZ);
+      /*
       Axis[0] = XCVec1[1];
       Axis[1] = XCVec1[0] * -1;
       Axis[2] = 0.0;
+      */
     } else {
       if (XCPos != null) translate(invertedXYZ, XCPos);
       return transpose(invertedXYZ);
     }
-    double[] CenterPos = invertedXYZ[center].clone();
     scaleVec(CenterPos, -1);
     translate(invertedXYZ, CenterPos);
     scaleVec(CenterPos, -1);

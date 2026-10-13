@@ -78,6 +78,7 @@ public final class LigandConfig implements Serializable {
   public boolean bRestart = false;
   public boolean doNiching = false;
   public boolean useRefFit = false;
+  public boolean bPreOpt = false;
   public String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
   public static double dDipolePen = 100;
@@ -174,6 +175,7 @@ public final class LigandConfig implements Serializable {
   }
 
   public boolean buildRefFitness() {
+    if (!this.useRefFit) return false;
     int nXC, iHIdx = -1;
     int[] iFragList;
     nXC = this.Back.getNumXCPos();

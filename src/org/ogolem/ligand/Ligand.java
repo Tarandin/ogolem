@@ -793,7 +793,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
       if (this.alSides.get(iSide).getNumOfAtoms() == 1) continue; // Rotating will not change anything
       for (int iAng = 0; iAng < 72; iAng++) {
         if (!this.internalCollisionDetection(dBlowBonds, iSide, true)) break; // otherwise, barly bound would count
-        this.alSides.get(iSide).rotate(5, 0); //Roate by 5°; Test all angles, but not to adjecent
+        this.alSides.get(iSide).rotate(5, 0); //Roate by 5°; Test all angles
       }
     }
     for (int iSide = 0; iSide < this.alSides.size(); iSide++) {

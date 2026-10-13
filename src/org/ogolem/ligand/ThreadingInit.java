@@ -142,11 +142,20 @@ final class ThreadingInits {
   private static Runnable createBackboneTask(LigandConfig lConf) {
     return () -> {
       final LocOpt locOpt = new LocOpt(lConf);
-      CartesianCoordinates newCartes = locOpt.doLocOpt(lConf.Back.getCartesWithH(), 405, null);
-      if (newCartes != null) {
-         lConf.Back.setCartesWithXC(newCartes);
+      CartesianCoordinates newCartes = lConf.Back.getCartesWithH();
+      if (lConf.bPreOpt) {
+        newCartes = locOpt.doLocOpt(newCartes, 405, null);
+        if (newCartes != null) {
+          lConf.Back.setCartesWithXC(newCartes);
+        } else {
+          System.err.println("Could not optimize the bare Backbone! This is not a good start!");
+        }
       } else {
-        System.err.println("Could not optimize the bare Backbone! This is not a good start!");
+        if (locOpt.doSinglePoint(newCartes, 405, null)) {
+          lConf.Back.setAllCharges(newCartes.getAllCharges());
+        } else {
+          System.err.println("Could not converge bare Backbone! This is not a good start!");
+        }
       }
       lConf.Back.buildBondInfo(lConf.dBlowBondsFac);
     };
