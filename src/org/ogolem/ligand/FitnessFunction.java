@@ -250,7 +250,7 @@ public final class FitnessFunction {
       lig.Guest.alignWithDipole(lig.getDipole(), this.targetDipole); // rotate it back to staring position...
       dDeltaDipole = org.ogolem.ligand.VectorUtils.getNorm(lig.getDipole());
       dDeltaDipole -= this.lengthTargetDipole;
-      if (dDeltaDipole == 0.0) dDeltaDipole += 0.0001;  // Otherwise, the perfect score would give an error... 
+      if (dDeltaDipole == 0.0) dDeltaDipole += 0.00000001;  // Otherwise, the perfect score would give an error... 
       dDipPen = this.dDipolePen * dDeltaDipole * dDeltaDipole;
       if (Double.isNaN(dDipPen)) {
         dFitness += FixedValues.BADDIPOLE;  //Most likely, dDipole contains only zeros
@@ -265,7 +265,7 @@ public final class FitnessFunction {
     double dDiffEField = 0;
     if (doCharge) {
       dDiffEField = lig.Guest.getRMSDOfField(fullComplex, 0, lig.getDipole());
-      if (dDiffEField == 0) dDiffEField += 0.0001;
+      if (dDiffEField == 0) dDiffEField += 0.00000001;
       dFitness += Math.min(dDiffEField * dDiffEField * this.dChargePen, FixedValues.BADDIPOLE);
       dFitness += (chargeComplex - this.targetCharge) * (chargeComplex - this.targetCharge);
     }
@@ -340,7 +340,7 @@ public final class FitnessFunction {
     }
 
     if (doBinding) lig.Guest.alignWithDipole(lig.getDipole(), this.targetDipole); //Reverse changes in Guest Structures…
-    if (Math.abs(dFitness) >= 10E30 ) dFitness = FixedValues.BADENERGY; // Sometimes, dK gets out of bounds...
+    if (Math.abs(dFitness) > FixedValues.BADENERGY ) dFitness = FixedValues.BADENERGY; // Sometimes, dK gets out of bounds...
     return dFitness;
   }
 

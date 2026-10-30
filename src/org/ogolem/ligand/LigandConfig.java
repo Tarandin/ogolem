@@ -79,6 +79,8 @@ public final class LigandConfig implements Serializable {
   public boolean doNiching = false;
   public boolean useRefFit = false;
   public boolean bPreOpt = false;
+  public boolean doDistCross = false;
+  public double[][] dXCDistance;
   public String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
   public static double dDipolePen = 100;
@@ -205,6 +207,20 @@ public final class LigandConfig implements Serializable {
       return new ChargeNicheComp();
     }
     return null;
+  }
+
+  public void buildXCDistance() {
+    int nXC = this.Back.getNumXCPos();
+    this.dXCDistance = new double[nXC][nXC];
+    double[] iXCPos, jXCPos;
+    for (int iXC = 0; iXC < nXC; iXC++) {
+      iXCPos = this.Back.getXCCoord(iXC);
+      for (int jXC = iXC + 1; jXC < nXC; jXC++) {
+        jXCPos = this.Back.getXCCoord(jXC);
+        dXCDistance[iXC][jXC] = org.ogolem.ligand.VectorUtils.distance(iXCPos, jXCPos);
+        dXCDistance[jXC][iXC] = dXCDistance[iXC][jXC];
+      }
+    }
   }
 
   // Copied, but not fully adapted!

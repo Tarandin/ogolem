@@ -53,7 +53,7 @@ public class PointCharge {
   public PointCharge(String sChargeLine) throws CastException {
     this.dPosition = new double[3];
     String sTemp = sChargeLine.trim();
-    assert(sTemp.startsWith("Ch"));
+    assert(sTemp.startsWith("Ch") || sTemp.startsWith("VDW"));
     String[] saTemp = sTemp.split("\\s+");
     try {
       this.dPosition[0] = Double.parseDouble(saTemp[1]);

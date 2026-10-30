@@ -46,6 +46,8 @@ final class GermanyGlobOpt implements LigandDarwin {
   private final FitnessFunction fitness;
   private final Fragment FragList[];
   private final double dBlowBondsFac;
+  private final boolean doDistanceCross;
+  private final double[][] dXCDistance;
 
   GermanyGlobOpt(final LigandConfig lConf) {
     this.bMoreMut = lConf.bMoreMutation;
@@ -54,6 +56,8 @@ final class GermanyGlobOpt implements LigandDarwin {
     this.FragList = new Fragment[lConf.Sides.length];
     System.arraycopy(lConf.Sides, 0, this.FragList, 0, lConf.Sides.length);
     this.dBlowBondsFac = lConf.dBlowBondsFac;
+    this.doDistanceCross = lConf.doDistCross;
+    this.dXCDistance = lConf.dXCDistance;
   }
 
   @Override
@@ -115,8 +119,13 @@ final class GermanyGlobOpt implements LigandDarwin {
     final ArrayList<Ligand> alChildren = new ArrayList<>(2);
     final int[] iMother = lMother.getFragIDList();
     final int[] iFather = lFather.getFragIDList();
+    int[][] iChildGen;
 
-    final int[][] iChildGen = GlobOptAtomics.genotypeCross(iMother, iFather);
+    if (this.doDistanceCross) {
+      iChildGen = GlobOptAtomics.distanceCross(iMother, iFather, this.dXCDistance);
+    } else { 
+      iChildGen = GlobOptAtomics.genotypeCross(iMother, iFather);
+    }
 
     final Ligand lChildOne = new Ligand(lMother);
     final Ligand lChildTwo = new Ligand(lFather);

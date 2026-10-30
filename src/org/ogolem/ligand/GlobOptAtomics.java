@@ -64,6 +64,28 @@ final class GlobOptAtomics {
     return iResult;
   }
 
+  static int[][] distanceCross(final int[] iMother, final int[] iFather, double[][] distance) {
+
+    final Random random = new Random();
+    final int iLength = iMother.length;
+
+    final int[][] iaChild = new int[2][iLength];
+
+    final int iCrossOne = random.nextInt(iLength);
+    final int iCrossTwo = random.nextInt(iLength);
+
+    for (int iXC = 0; iXC < iLength; iXC++) {
+      if (distance[iCrossOne][iXC] < distance[iCrossTwo][iXC]) {
+        iaChild[0][iXC] = iMother[iXC];
+        iaChild[1][iXC] = iFather[iXC];
+      } else {
+        iaChild[1][iXC] = iFather[iXC];
+        iaChild[0][iXC] = iMother[iXC];
+      }
+    }
+    return iaChild;
+  }
+
   static int[] genotypeMutation(final int[] iStart, final boolean bMoreMutation) {
 
     final Random random = new Random();
@@ -78,7 +100,13 @@ final class GlobOptAtomics {
 
       int iPosition = random.nextInt(iEnd.length);
 
-      if (!bMoreMutation) {
+      if (random.nextInt(20) < 5) {
+        int iPosition2 = random.nextInt(iEnd.length);
+        if (iPosition == iPosition2) iPosition2 = (iPosition2 + 1) % iEnd.length;
+        int iSwap = iEnd[iPosition];
+        iEnd[iPosition] = iEnd[iPosition2];
+        iEnd[iPosition2] = iSwap;
+      } else if (!bMoreMutation) {
         final int iRandFragID = random.nextInt(iEnd.length);
         iEnd[iPosition] = iRandFragID;
       } else {

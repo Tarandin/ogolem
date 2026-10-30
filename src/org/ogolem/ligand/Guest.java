@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
+import java.io.IOException;
 import java.io.Serializable;
 import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.core.CastException;
@@ -73,6 +74,54 @@ public class Guest implements Serializable {
           "ERROR: Could not cast the guest to CartesianCoordinates Object. Aborting! \n"
               + e2.toString());
       System.exit(111);
+    }
+    Cartes = new CartesianCoordinates(myCartes);
+    Cartes.moveCoordsToCOM();
+    Cartes.setChargeAtAtom((float) mycharge, 0);
+    this.buildDimeter();
+    charge = mycharge;
+    spin = myspin;
+    RefEnergy = Double.NaN;
+    this.dEField = new double[Cartes.getNoOfAtoms()][3];
+  }
+
+  public Guest(final String GOCATFile, final short mycharge, final short myspin, final int mynatoms) {
+    CartesianCoordinates myCartes = null;
+    String[] saData = new String[mynatoms + 2];
+    saData[0] = Integer.toString(mynatoms);
+    int iLinesDone = 0;
+    short[] spins = new short[mynatoms];
+    float[] charges = new float[mynatoms];
+    spins[0] = myspin;
+    charges[0] = (float) mycharge;
+    int[] natoms = {mynatoms};
+    try {
+      final String[] saDataPrim = org.ogolem.io.InputPrimitives.readFileIn(GOCATFile);
+      for (int iAtomLine = 2; iAtomLine < saDataPrim.length; iAtomLine++) {
+        if (iLinesDone == mynatoms) break;
+        if (saDataPrim[iAtomLine].trim().startsWith("Ch") || saDataPrim[iAtomLine].trim().startsWith("VdW")) continue;
+        if (saDataPrim[iAtomLine].trim().startsWith("CH") || saDataPrim[iAtomLine].trim().startsWith("VDW")) continue;
+        saData[iLinesDone + 2] = saDataPrim[iAtomLine];
+        iLinesDone++;
+      }
+      if (iLinesDone != mynatoms) { 
+        System.err.println("Error while reading GOCAT Guest structure!");
+      }
+      myCartes = org.ogolem.core.Input.parseCartesFromFileData(saData, 1, natoms, spins, charges);
+    } catch (InitIOException e1) {
+      System.err.println(
+          "ERROR: opening XYZ File of the guest did not work as expected. Aborting! \n"
+              + e1.toString());
+      System.exit(112);
+    } catch (CastException e2) {
+      System.err.println(
+          "ERROR: Could not cast the guest to CartesianCoordinates Object. Aborting! \n"
+              + e2.toString());
+      System.exit(111);
+    } catch (IOException e3) {
+      System.err.println(
+          "ERROR: Could not read GOCAT input file. Aborting!\n" + e3.toString());
+      System.exit(113);
     }
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();

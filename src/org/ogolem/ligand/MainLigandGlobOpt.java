@@ -162,6 +162,8 @@ public class MainLigandGlobOpt {
       System.err.println("ERROR: Backbone structure was not stable towards optimization!");
       System.exit(114);
     }
+
+    lConf.buildXCDistance();
     if (lConf.buildRefFitness() && lConf.Debug) System.out.println("RefFitness=" + lConf.dRefFitness);
 
     final Ligand refLigand = new Ligand(lConf);

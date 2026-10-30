@@ -206,6 +206,16 @@ public final class LigandInput {
           System.err.println(
               "WARNING: Couldn't cast boolean for doPreOpt, useing default. " + e.toString());
         }
+      } else if (CurrentLine.startsWith("doDistanceCross=")) {
+        final String Temp = CurrentLine.substring(16);
+        boolean doDistCross;
+        try {
+          doDistCross = Boolean.parseBoolean(Temp);
+          config.doDistCross = doDistCross;
+        } catch (Exception e) {
+          System.err.println(
+              "WARNING: Couldn't cast boolean for doDistCross, useing default. " + e.toString());
+        }
       } else if (CurrentLine.startsWith("FitnessDiversity=")) {
         final String Temp = CurrentLine.substring(17).trim();
         double FitnessDiversity;
@@ -344,6 +354,35 @@ public final class LigandInput {
           System.err.println("Could not parse GOCAT! "+e2.toString());
           System.exit(1);
         }
+      } else if (CurrentLine.startsWith("gocatXYZ=")) {
+        final String Temp0 = CurrentLine.substring(9, CurrentLine.indexOf(":natoms="));
+        final String Temp1 = CurrentLine.substring(CurrentLine.indexOf(":natoms=") + 8, CurrentLine.indexOf(":charge="));
+        final String Temp2 = CurrentLine.substring(CurrentLine.indexOf(":charge=")+8, CurrentLine.indexOf(":spin="));
+        final String Temp3 = CurrentLine.substring(CurrentLine.indexOf(":spin=")+6).trim();
+        short charge=0, spin=1;
+        int natoms=0;
+        if (!Temp0.endsWith(".xyz")) {
+          System.err.println("ERROR: GOCAT needs to be in XYZ format! Aborting!");
+          System.exit(1);
+        }
+        try {
+          config.GOCAT = parseGOCAT(Temp0);
+        } catch (InitIOException e1) {
+          System.err.println("Could not open given GOCAT file! "+e1.toString());
+          System.exit(1);
+        } catch (CastException e2) {
+          System.err.println("Could not parse GOCAT charges! "+e2.toString());
+          System.exit(1);
+        }
+        try {
+          natoms = Integer.parseInt(Temp1);
+          charge = Short.parseShort(Temp2);
+          spin = Short.parseShort(Temp3);
+        } catch (Exception e) {
+          System.err.println("ERROR:: Couldn't parse GOCAT atomic features! Abort!");
+          System.exit(1);
+        }
+        config.Guest = new Guest(Temp0, charge, spin, natoms);
       } else if (CurrentLine.startsWith("SidesDir=")) {
         String Temp = CurrentLine.substring(9).trim();
         String Temp2 = Temp;
@@ -425,7 +464,7 @@ public final class LigandInput {
       throw new InitIOException("Could not read GOCAT Data! "+e1.toString(), e1);
     }
     for (int iLine = 0; iLine < saGOCATData.length; iLine++) {
-      if (saGOCATData[iLine].trim().startsWith("Ch")) {
+      if (saGOCATData[iLine].trim().startsWith("Ch") || saGOCATData[iLine].trim().startsWith("VDW")) {
         nCharges++;
         if (iStart == -1) iStart = iLine;
       }
