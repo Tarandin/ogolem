@@ -115,7 +115,7 @@ public final class FitnessFunction {
 
     // If monopole charge works against our efford, the dipole will not help... 
     if (this.guestCharge != 0 && Math.abs(lig.getCharge()) >= 1) {
-      if (Math.signum(this.guestCharge) == Math.signum(ligCharge)) return FixedValues.UNBOUND + ligCharge * ligCharge * this.dChargePen;
+      if (Math.signum(this.guestCharge) == Math.signum(ligCharge)) return FixedValues.BADENERGY + FixedValues.UNBOUND + ligCharge * ligCharge * this.dChargePen;
     }
 
     // Construct a dipole with a very cruede approximation

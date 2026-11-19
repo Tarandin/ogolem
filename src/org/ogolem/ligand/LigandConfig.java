@@ -141,11 +141,25 @@ public final class LigandConfig implements Serializable {
         System.err.println("WARNING: Wrong input to configure MOPAC: " + sTemp3 + " using pm3.");
         return 202;
       }
+    } else if (sLocOpt.startsWith("xtb:")) {
+      String sTemp3 = sLocOpt.substring(4).trim();
+      if (sTemp3.equalsIgnoreCase("gxtb")) {
+        return 300;
+      } else if (sTemp3.equalsIgnoreCase("gfn0")) {
+        return 301;
+      } else if (sTemp3.equalsIgnoreCase("gfn1")) {
+        return 302;
+      } else if (sTemp3.equalsIgnoreCase("gfn2")) {
+        return 303;
+      } else if (sTemp3.equalsIgnoreCase("gfnff")) {
+        return 304;
+      }
     } else {
       System.err.println(
-          "WARNING: Not aware of locopt method " + sLocOpt + " using openbabel:ghemical now.");
-      return 100;
+          "WARNING: Not aware of locopt method " + sLocOpt + " using mopac:pm7 now.");
+      return 206;
     }
+    return 206;
   }
 
   public void saneDipole() throws Exception {

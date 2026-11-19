@@ -52,6 +52,7 @@ import org.ogolem.core.InitIOException;
 public class Guest implements Serializable {
   private static final long serialVersionUID = (long) 20300005;
   private final CartesianCoordinates Cartes;
+  private CartesianCoordinates[] Path;
   private final short charge;
   private final short spin;
   private double[][] dEField;
@@ -78,6 +79,7 @@ public class Guest implements Serializable {
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();
     Cartes.setChargeAtAtom((float) mycharge, 0);
+    Path=null;
     this.buildDimeter();
     charge = mycharge;
     spin = myspin;
@@ -86,7 +88,16 @@ public class Guest implements Serializable {
   }
 
   public Guest(final String GOCATFile, final short mycharge, final short myspin, final int mynatoms) {
-    CartesianCoordinates myCartes = null;
+    try {
+      Path = org.ogolem.ligand.LigandInput.parseGOCATPath(GOCATFile, mynatoms, mycharge, myspin);
+    } catch (IOException e1) {
+      System.err.println("Error: " + e1.toString());
+      System.exit(112);
+    } catch (CastException e2) {
+      System.err.println("ERROR: " + e2.toString());
+      System.exit(111);
+    }
+    /*
     String[] saData = new String[mynatoms + 2];
     saData[0] = Integer.toString(mynatoms);
     int iLinesDone = 0;
@@ -125,6 +136,8 @@ public class Guest implements Serializable {
     }
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();
+    */
+    Cartes = new CartesianCoordinates(Path[0]);
     Cartes.setChargeAtAtom((float) mycharge, 0);
     this.buildDimeter();
     charge = mycharge;
@@ -150,6 +163,7 @@ public class Guest implements Serializable {
     }
     Cartes = new CartesianCoordinates(myCartes);
     Cartes.moveCoordsToCOM();
+    Path = null;
     charge = 0;
     spin = 1;
     RefEnergy = Double.NaN;
@@ -162,6 +176,7 @@ public class Guest implements Serializable {
     dimeter = source.getDimeter();
     RefEnergy = source.getRefEnergy();
     Cartes = source.getCartesianCoordinates();
+    Path = source.getPath();
     dEField = source.getEField();
     isTS = source.isTS;
     isProd = source.isProd;
@@ -180,6 +195,7 @@ public class Guest implements Serializable {
       this.Cartes.setChargeAtAtom(fCharge, 0);
     }
     this.dEField = new double[Cartes.getNoOfAtoms()][3];
+    this.Path = null; 
   }
 
   public double getRMSDToComplex(CartesianCoordinates coordsComplex) {
@@ -233,6 +249,15 @@ public class Guest implements Serializable {
 
   public double[] getDimeter() {
     return this.dimeter.clone();
+  }
+
+  public CartesianCoordinates[] getPath() {
+    if (this.Path == null) return null;
+    CartesianCoordinates[] resPath = new CartesianCoordinates[this.Path.length];
+    for (int iImg = 0; iImg < this.Path.length; iImg++) {
+      resPath[iImg] = new CartesianCoordinates(this.Path[iImg]);
+    }
+    return resPath;
   }
 
   public double getMaxDimeter() {

@@ -480,6 +480,7 @@ public final class LigandInput {
     return resCharges;
   }
 
+  /*
   static double[] readSPMopacOutput(String sMopacOutput,int iNoOfAtoms, CartesianCoordinates cartes)
      throws CastException, InitIOException {
 
@@ -741,6 +742,7 @@ public final class LigandInput {
     }
     return dGrad;
   }
+  */
 
   static void removeFile(final String sToFilePath) throws InitIOException {
     final File f = new File(sToFilePath);
@@ -748,6 +750,76 @@ public final class LigandInput {
     if (bSuccess == false) {
       throw new InitIOException("Couldn't remove file.");
     }
+  }
+
+  static CartesianCoordinates[] parseGOCATPath(
+      String GOCATRankFile,
+      final int natoms,
+      final short mycharge,
+      final short myspin) throws IOException, CastException {
+    CartesianCoordinates[] Path = null;
+    int nTotalAtoms;
+    String[] saImages = new String[natoms + 2];
+    String[] saData;
+    try {
+      saImages[0] = Integer.toString(natoms);
+    } catch (Exception e) {
+      throw new CastException("Could not parse number of atoms of GOCAT Images! Please Check your Input!");
+    }
+    saImages[1] = "Images from " + GOCATRankFile;
+    try {
+      saData = org.ogolem.io.InputPrimitives.readFileIn(GOCATRankFile);
+    } catch (Exception e) {
+      throw new IOException("Could not read Rankfile " + GOCATRankFile + " in memory!\n" + e.toString());
+    }
+    try {
+      nTotalAtoms = Integer.parseInt(saData[0]);
+    } catch (Exception e) {
+      throw new CastException(
+          "Could not parse number of Atoms! Somethings wrong with xyz "
+          + GOCATRankFile + "!\n" + e.toString());
+    }
+    int nImages = 0;
+    int nCharges = 0;
+    int[] iaAtoms = {natoms};
+    float[] charges = new float[natoms];
+    short[] spins = new short[natoms];
+    spins[0] = myspin;
+    charges[0] = (float) mycharge;
+    for (int iLine = 2; iLine < saData.length; iLine++) {
+      if (saData[iLine].trim().startsWith("Ch") || saData[iLine].trim().startsWith("CH") || saData[iLine].trim().startsWith("VdW") || saData[iLine].trim().startsWith("VDW")) {
+        nCharges++;
+        continue;
+      }
+    }
+    if ((nTotalAtoms - nCharges) % natoms != 0) {
+      throw new IOException(
+          "Somethings Wrong with GOCAT file " + GOCATRankFile + "! Non Intger number was found for number of Images!");
+    }
+    nImages = (nTotalAtoms - nCharges) / natoms;
+    Path = new CartesianCoordinates[nImages];
+    for (int iImage = 0; iImage < nImages; iImage++) {
+      System.arraycopy(saData, 2 + nCharges + iImage * natoms, saImages, 2, natoms);
+      try {
+        Path[iImage] = org.ogolem.core.Input.parseCartesFromFileData(saImages, 1,new int[] {natoms}, spins, charges);
+      } catch (CastException e1) {
+        throw new CastException("Error while casting GOCAT Images!\n" + e1.toString());
+      } catch (InitIOException e2) {
+        throw new IOException("Could not open GOCAT File!\n" + e2.toString());
+      }
+      Path[iImage].moveCoordsToCOM();
+      Path[iImage].setChargeAtAtom((float) mycharge, 0);
+    }
+    return Path;
+  }
+
+  static CartesianCoordinates[] parseTrajPath(
+      String XYZTrajFile,
+      final short mycharge,
+      final short myspin) throws IOException, CastException {
+    System.err.println("Not yet suproted trajectory file. Abort!");
+    System.exit(666);
+    return null;
   }
 
   // Copyied from SwitchesInput.

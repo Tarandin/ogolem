@@ -48,11 +48,13 @@ final class MopacLocOpt implements LocalOptimization {
   private final int iWhichBackend;
   private final int iNoOfCycles;
   private final boolean bConstrained;
+  private final MopacReader mr;
 
   MopacLocOpt(final int iWhichMethod, final int iMaxIterLocOpt, final boolean bConst) {
     this.iWhichBackend = iWhichMethod;
     this.iNoOfCycles = iMaxIterLocOpt;
     this.bConstrained = bConst;
+    this.mr = new MopacReader(); 
   }
 
   @Override
@@ -69,7 +71,7 @@ final class MopacLocOpt implements LocalOptimization {
     double tmpDipole[] = new double[3];
 
     try {
-      tmpDipole = LigandInput.readSPMopacOutput(
+      tmpDipole = mr.readSPOutput( //LigandInput.readSPMopacOutput(
             sMopacOutput,
 	          cartes.getNoOfAtoms(),
 	          cartes);
@@ -127,11 +129,10 @@ final class MopacLocOpt implements LocalOptimization {
 
     try {
       newCartes =
-          LigandInput.readXYZMopacOutput(
+          mr.readXYZOutput(
+          //LigandInput.readXYZMopacOutput(
               sMopacOutput,
               cartes.getNoOfAtoms(),
-              cartes.getNoOfMolecules(),
-              cartes.getAllAtomsPerMol(),
               tmpDipole);
     } catch (Exception e) {
       System.err.println("WARNING: Problem in reading the output of mopac. "+e.toString());
@@ -154,6 +155,8 @@ final class MopacLocOpt implements LocalOptimization {
     return newCartes;
   }
 
+
+
   // try to use FIRE locopt to propagate the static guest into its minimum inside of the guest
   @Override
   public CartesianCoordinates propagateGuest(final CartesianCoordinates cartes, int iID, Ligand lig) {
@@ -175,7 +178,7 @@ final class MopacLocOpt implements LocalOptimization {
     double Fnorm = iGuestAtoms * 10;
     double mGuest = 0.0;
     double XXnorm, vnorm;
-    double eps = ((double) iGuestAtoms) / 100; // cernvergence criteria
+    double eps = ((double) iGuestAtoms) / 100; // convergence criteria
     double[] v = new double[3];
     double[] dx = new double[3];
     double[][] x = new double[iGuestAtoms][3];
@@ -196,7 +199,7 @@ final class MopacLocOpt implements LocalOptimization {
       // get new gradients/forces
       if (!this.runMopac(newCartes, iID, true, constraints)) break;
       try {
-        totalF = LigandInput.readMopacGuestGradient(
+        totalF = mr.readGuestGradient(  //LigandInput.readMopacGuestGradient(
            sMopacOutput, iGuestAtoms);
       } catch (Exception e) {
         System.err.println("ERROR in FIRE locopt while reading Input! " + e.toString());
@@ -261,7 +264,8 @@ final class MopacLocOpt implements LocalOptimization {
       //newCartes = null;
     } else {
       try {
-        final double[] dDipoleDump = LigandInput.readSPMopacOutput(sMopacOutput, lig.getNumOfAtoms(), newCartes);
+        final double[] dDipoleDump = mr.readSPOutput(sMopacOutput, lig.getNumOfAtoms(), newCartes);
+ //LigandInput.readSPMopacOutput(sMopacOutput, lig.getNumOfAtoms(), newCartes);
       } catch (Exception e) {
         System.err.println("Error while reading final Output! " + e.toString());
         newCartes = null;
@@ -276,6 +280,24 @@ final class MopacLocOpt implements LocalOptimization {
       }
     }
     return newCartes;
+  }
+
+  @Override
+  public double[][] getGuestGradient(final CartesianCoordinates cartes, final int iID, Ligand lig) {
+    double[][] dGrad;
+    int iGuestAtoms = cartes.getNoOfAtoms() - lig.getNumOfAtoms();
+    int[] constraints = new int[2];
+    constraints[0] = lig.getNumOfAtoms();
+    constraints[1] = 0;
+    String sMopacOut = "mopacSP" + iID + ".out";
+    if (!runMopac(cartes, iID, true, constraints)) return null;
+    try {
+      dGrad = mr.readGuestGradient(sMopacOut, iGuestAtoms);
+    } catch (Exception e) {
+      return null;
+    }
+
+    return dGrad;
   }
 
   private boolean runMopac(final CartesianCoordinates cartes, int iID, boolean justSP, int[] constraints) {
