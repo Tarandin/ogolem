@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.ogolem.ligand;
 
 import static org.ogolem.core.Constants.*;
+import org.ogolem.generic.genericpool.GenericPool;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -84,6 +85,56 @@ final class Output {
     } else {
       // Folder exists already
       System.err.println("Failure in creating needed folder " + sFolderName + ". Folder exists.");
+    }
+  }
+
+  static void printHeader() {
+    String[] sHeader = org.ogolem.core.Output.getHeader();
+    for (String Line : sHeader) {
+      System.out.println(Line);
+    }
+  }
+
+  static void printCurrentPool(String sTargetDirectory, GenericPool<Fragment, Ligand> pool) throws IOException {
+    int iLines = pool.getCurrentPoolSize() + 6;
+    int iLineLength = 100;
+    Ligand lig;
+    String[] saData = new String[iLines];
+    // Some Fixed lines to seperate different Output blocks.
+    saData[0] = "*".repeat(iLineLength - 1);
+    saData[2] = saData[0];
+    saData[4] = saData[0];
+    saData[iLines - 1] = saData[0];
+
+    //Create Folder for Pool entries
+    try {
+      org.ogolem.io.OutputPrimitives.createAFolder(sTargetDirectory);
+      org.ogolem.io.OutputPrimitives.writeObjToBinFile(sTargetDirectory + "/Pool.bin", pool);
+   } catch (IOException e) {
+     throw e;
+   }
+
+    // Some Headlines and stuff
+    saData[1] = "******";
+    saData[1] += org.ogolem.ligand.LittleHelpers.fixedLength("OGOLEM LIGAND POOL", 2 * (iLineLength - 24) / 3);
+    saData[1] += org.ogolem.ligand.LittleHelpers.fixedLength("******", iLineLength - saData[1].length() - 1);
+    saData[3] = "   RANK       ID     FATHERID  MOTHERID          FITNESS                 DIPOLE          CHARGE";
+
+    // get different Ligand Info and structures
+    for (int i = 5; i < iLines - 1; i++) {
+      lig = pool.getIndividualAtPosition(i - 5);
+      saData[i] = org.ogolem.ligand.LittleHelpers.fixedLength(" ", 10);
+      saData[i] += lig.getInfoLine();
+      try {
+        lig.printOptimizedIndividual(sTargetDirectory + "/rank", i - 5);
+      } catch  (Exception e) {
+        continue;
+      }
+    }
+
+    // Now just print the whole Pool in one setting to prevent threading bullshit.
+    for (int i = 0; i < iLines; i++) {
+      System.out.println(saData[i]);
     }
   }
 

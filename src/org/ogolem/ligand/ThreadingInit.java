@@ -80,27 +80,39 @@ final class ThreadingInits {
     }
     threadpool.shutdown();
     try {
-      threadpool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+      if (this.lConf.Debug) {
+        System.out.println("Debug:: Remaining time in ms: " + (this.lConf.lMaxTime - (System.currentTimeMillis() - this.lConf.lStartTime - 10000)));
+      }
+      if (!threadpool.awaitTermination(this.lConf.lMaxTime - (System.currentTimeMillis() - this.lConf.lStartTime), TimeUnit.MILLISECONDS)) {
+        threadpool.shutdownNow();
+        System.err.println("ERROR: Time not sufficient to initialize Fragments! Abort!");
+        System.exit(200);
+      }
     } catch (InterruptedException e) {
       System.err.println(
-          "Threadpool reached wallclock limit. This should really NEVER happen! " + e.toString());
+          "Threadpool reached wallclock limit. " + e.toString());
     }
   }
 
-  void fillInitialPool() {
+  long fillInitialPool() {
+    final long lStartTime = System.currentTimeMillis();
     final Ligand refLigand = this.pool.getExample();
     final ExecutorService threadpool = Executors.newFixedThreadPool(iNoOfThreads);
+    if (this.lConf.Debug) System.out.println("Debug:: Remaining time in ms: " + (this.lConf.lMaxTime - (System.currentTimeMillis() - this.lConf.lStartTime)));
     for (long i = 0; i < this.lConf.PoolSize; i++) {
       threadpool.submit(createFillTask(refLigand, i, this.lConf, this.pool, Taboos.getReference()));
     }
     threadpool.shutdown();
 
     try {
-      threadpool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+      if (!threadpool.awaitTermination(this.lConf.lMaxTime - (System.currentTimeMillis() - this.lConf.lStartTime), TimeUnit.MILLISECONDS)) {
+        threadpool.shutdownNow();
+      }
     } catch (InterruptedException e) {
       System.err.println(
           "Threadpool reached wallclock limit. This should really NEVER happen! " + e.toString());
     }
+    return (long) ((System.currentTimeMillis() - lStartTime) * (iNoOfThreads / this.lConf.PoolSize));
   }
 
   private static Runnable createFillTask(

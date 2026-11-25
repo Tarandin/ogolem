@@ -302,7 +302,7 @@ public final class FitnessFunction {
     dFitness -= this.dRefFitness;
 
     if (this.bDebug) {
-      String debugOutput = "****************************************************************************\n";
+      String debugOutput = "*".repeat(99) + "\n";
       debugOutput += "                          LIGAND  " + lig.getID() + "\n";
       debugOutput += "                         Fitness: " + dFitness + "\n";
       debugOutput += "                   Energy Ligand: " + fullLigand.getEnergy() + "\n";
@@ -335,7 +335,7 @@ public final class FitnessFunction {
         debugOutput += "                  Binding Energy: " + dDeltaE + "\n";
         debugOutput += "             Release Path Penety: " + dPath + "\n";
       }
-      debugOutput += "****************************************************************************";
+      debugOutput += "*".repeat(99);
       System.out.println(debugOutput);
     }
 

@@ -37,13 +37,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package org.ogolem.ligand;
 
-import java.io.IOException;
+import java.io.*; //DEBUG
+//import java.io.IOException;
 import org.ogolem.core.CartesianCoordinates;
 import org.ogolem.core.CastException;
 import org.ogolem.core.InitIOException;
 
 
 final class XTBReader implements QMReader {
+
+   boolean bDebug = false;
 
   @Override
   public CartesianCoordinates readXYZOutput(
@@ -54,6 +57,11 @@ final class XTBReader implements QMReader {
 
       CartesianCoordinates cartes;
       double[] daDipole;
+      if (bDebug) {
+        File fCalcFolder = new File(sCalcFolder);
+        assert(fCalcFolder.isDirectory());
+        System.err.println("DEBUG: current calc DIR: " + fCalcFolder.getAbsolutePath());
+      }
       try {
         cartes = parseXYZ(sCalcFolder);
         parseCharges(cartes, sCalcFolder);
@@ -90,7 +98,7 @@ final class XTBReader implements QMReader {
 
   private CartesianCoordinates parseXYZ(String sCalcFolder) throws InitIOException, CastException {
     CartesianCoordinates newCartes;
-    String sOptXYZ = sCalcFolder + "/xtbopt.xyz ";
+    String sOptXYZ = sCalcFolder + "xtbopt.xyz";
     try {
       newCartes = org.ogolem.core.Input.readCartesFromFile(sOptXYZ);
     } catch (InitIOException e1) {
@@ -102,7 +110,7 @@ final class XTBReader implements QMReader {
   }
   
   private void parseCharges(CartesianCoordinates cartes, String sCalcFolder) throws InitIOException, CastException {
-    String sChargeFile = sCalcFolder + "/charges";
+    String sChargeFile = sCalcFolder + "charges";
     String[] saData;
     int nAtoms = cartes.getNoOfAtoms();
     float[] faCharges = new float[nAtoms];
@@ -122,7 +130,7 @@ final class XTBReader implements QMReader {
   }
 
   private void parseEnergy(CartesianCoordinates cartes, String sCalcFolder) throws InitIOException, CastException {
-    String sEFile = sCalcFolder + "/energy";
+    String sEFile = sCalcFolder + "energy";
     String[] saData;
     String[] saEnergyLine;
     double dEnergy;
@@ -141,7 +149,7 @@ final class XTBReader implements QMReader {
   }
 
   private void parseGradientNorm(CartesianCoordinates cartes, String sCalcFolder) throws InitIOException, CastException {
-    String sGradFile = sCalcFolder + "/gradient";
+    String sGradFile = sCalcFolder + "gradient";
     String[] saData, saCommentLine;
     double dGradNorm;
     try {
@@ -191,7 +199,7 @@ final class XTBReader implements QMReader {
 
   @Override
   public double[][] readGuestGradient(String sCalcFolder, int iGuestAtoms) throws InitIOException, CastException {
-    String sGradFile = sCalcFolder + "/gradient";
+    String sGradFile = sCalcFolder + "gradient";
     String[] saData, saGradLine;
     double[][] daGuestGrad = new double[iGuestAtoms][3];
     int nLines, iCurrLine;

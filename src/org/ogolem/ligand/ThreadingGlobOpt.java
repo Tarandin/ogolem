@@ -63,12 +63,19 @@ final class ThreadingGlobOpt {
     if (this.conf.Debug) System.out.println("Start The Globopt:" );
     final Taboos taboos = Taboos.getReference();;
     long iRestartPos = 0;
+    if (this.conf.Debug) System.out.println("Debug:: Remaining time in ms: " + (this.conf.lMaxTime - (System.currentTimeMillis() - this.conf.lStartTime - 10000)));
     if (this.conf.bRestart) {
       for (long i = 0; i < (long) pool.getCurrentPoolSize(); i++) {
         if (iRestartPos < this.pool.getIndividualAtPosition((int) i).getID()) iRestartPos = this.pool.getIndividualAtPosition((int) i).getID();
         taboos.addTaboo(this.pool.getIndividualAtPosition((int) i));
       }
     }
+    if (this.conf.Debug) System.out.println("Debug:: Starting positon shifted by " + (this.iOffset + iRestartPos));
+    if (this.conf.Debug) System.out.println("Debug:: Number of Individuals to be tested " + (this.iIterations + iOffset));
+
+    System.out.println("         ID           FATHERID       MOTHERID    Valid Child?     Accepted?");
+    System.out.println("*".repeat(99));
+
     for (long i = this.iOffset + iRestartPos; i < (this.iIterations + this.iOffset); i++) {
       threadpool.submit(createLigandTask(this.pool, i, this.conf, Taboos.getReference()));
     }
@@ -76,10 +83,16 @@ final class ThreadingGlobOpt {
     threadpool.shutdown();
 
     try{
-      threadpool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+      if (!threadpool.awaitTermination(this.conf.lMaxTime - (System.currentTimeMillis() - this.conf.lStartTime) - this.conf.lJobEstimate, TimeUnit.MILLISECONDS)) {
+        threadpool.shutdownNow(); // Kill all Tasks as soon as possible. This will take some time
+        if (this.conf.Debug) System.out.println("Debug:: Time Limit is approching! Shutting down all jobs!");
+        if (this.conf.Debug) System.out.println("Debug:: Just wait one job worth of time:: " + this.conf.lJobEstimate);
+        threadpool.awaitTermination(this.conf.lJobEstimate - 1000, TimeUnit.MILLISECONDS); // Wait as long as possible for jobs
+      }
     } catch (InterruptedException e) {
-      System.err.println("Threadpool reached wallclock limit. This should really NEVER happen! " + e.toString());
+      System.err.println("Threadpool reached wallclock limit. " + e.toString());
     }
+    System.out.println("*".repeat(99));
   }
 
   private static Runnable createLigandTask(final GenericPool<Fragment, Ligand> pool, final long position,
@@ -87,7 +100,10 @@ final class ThreadingGlobOpt {
 
     return () -> {
       if (pool.acceptableFitnessReached()) {return;}
+      String sInfo = org.ogolem.ligand.LittleHelpers.fixedLength(Long.toString(position), 15);
       final List<Ligand> vParents = pool.getParents();
+      sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Long.toString(vParents.get(0).getID()), 15);
+      sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Long.toString(vParents.get(1).getID()), 15);
       final LigandGlobOpt globopt = new LigandGlobOpt(lconf);
       final Ligand lChild = globopt.doTheGlobOpt(position, vParents.get(0), vParents.get(1));
       boolean accepted;
@@ -97,8 +113,13 @@ final class ThreadingGlobOpt {
         if (lconf.doNiching) niche = lconf.getNicheComputer().computeNiche(lChild);
         accepted = pool.addIndividual(lChild, niche, lChild.getFitness());
         taboos.addTaboo(lChild);
-        if (accepted) System.out.println("Ligand " + position + " with Fitness " + lChild.getFitness() + " was added to pool!");
+        sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(true), 15);
+        sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(accepted), 15);
+      } else {
+        sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(false), 15);
+        sInfo += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(false), 15);
       }
+      System.out.println(sInfo);
     };
   }
 }

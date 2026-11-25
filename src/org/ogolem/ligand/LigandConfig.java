@@ -43,50 +43,168 @@ import org.ogolem.generic.genericpool.*;
 
 /* This is the configuration data for the calculation
  * This will store global and spezial input informations.
+ * The Input will be parsed in the LigandInput class
  */
 
 public final class LigandConfig implements Serializable {
-  // This we will need to do in a IDE, which can generate this automaticlly
   private static final long serialVersionUID = (long) 2030001;
   public static int PoolSize = 200;
   public static int NoOfGlobIters = 1000;
   public static int iMaxIterLocOpt = 200;
+  public static long lMaxTime = Long.MAX_VALUE; //Maximal Runtime time in millisecounds;
+  public static long lStartTime = System.currentTimeMillis(); // time of start
+  public static long lJobEstimate = 180000; //to make cancelling safer
 
-  public double dBlowBondsFac = 1.2;
-  public double dRefFitness = 0.0;
-  public int MaxIterLocOpt = 200;
-  public double[] targetDipole = new double[3];
-  public static String OutputFile;
-  public static String OutputFolder;
-  public static String RestartPool;
+  public static double dBlowBondsFac = 1.2;
+  public static double dRefFitness = 0.0;
+  public static int MaxIterLocOpt = 200;
+  public static double[] targetDipole = new double[3];
+  public static String OutputFile = "";
+  public static String OutputFolder = "";
+  public static String RestartPool = "";
   public static Fragment Back = null;
   public static Fragment[] Sides = null;
   public static Guest Guest = null;
   public static PointCharge[] GOCAT = null;
-  public double T=300;
-  public double acceptableFitness = 0.0;
+  public static double T=300;
+  public static double acceptableFitness = 0.0;
   static int ToSerial = 100;
   static boolean AnyDivCheck = true;
   static double FitnessDiversity = 1E-2;
-  int WhichGlobAlgo = 0;
-  int WhichLocAlgo = 100;
-  public int maxIndividualsPerNiche = 100;
-  public int iEFieldMethod = 0;
+  static int WhichGlobAlgo = 0;
+  static int WhichLocAlgo = 100;
+  public static int maxIndividualsPerNiche = 100;
+  public static int iEFieldMethod = 0;
   public static boolean Debug = false;
-  public boolean bMoreMutation = false;
-  public boolean bConstraints = true;
-  public boolean bRestart = false;
-  public boolean doNiching = false;
-  public boolean useRefFit = false;
-  public boolean bPreOpt = false;
-  public boolean doDistCross = false;
-  public double[][] dXCDistance;
-  public String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
+  public static boolean bMoreMutation = false;
+  public static boolean bConstraints = true;
+  public static boolean bRestart = false;
+  public static boolean doNiching = false;
+  public static boolean useRefFit = false;
+  public static boolean bPreOpt = false;
+  public static boolean doDistCross = false;
+  public static double[][] dXCDistance;
+  public static String whichParentsChoice = "fitnessrankbased:gausswidth=0.05";
 
   public static double dDipolePen = 100;
   public static double dBindPen = 10;
   public static double dGradPen = 1;
   public static double dChargePen = 1;
+
+  static void printConfig() {
+    int iMethod;
+    int iNumLines = 30;
+    int iVarLength = 49;
+    int iValueLength = 50;
+    int iLineLength = iVarLength + iValueLength;
+    String sMethod = "";
+    String[] saConfig = new String[iNumLines];
+    saConfig[0] = "*".repeat(iLineLength);
+    saConfig[1] = "******" + org.ogolem.ligand.LittleHelpers.fixedLength("OGOLEM Ligand Config", 2 * (iLineLength -  28)/3);
+    saConfig[1] += org.ogolem.ligand.LittleHelpers.fixedLength("******", iLineLength - saConfig[1].length());
+    saConfig[2] = saConfig[0];
+    saConfig[3] = "    Gobal Optimization Options:";
+    saConfig[4] = org.ogolem.ligand.LittleHelpers.fixedLength("PoolSize  :", iVarLength);
+    saConfig[4] += org.ogolem.ligand.LittleHelpers.fixedLength(Integer.toString(PoolSize), iValueLength);
+    saConfig[5] = org.ogolem.ligand.LittleHelpers.fixedLength("Global Iterations  :", iVarLength);
+    saConfig[5] += org.ogolem.ligand.LittleHelpers.fixedLength(Integer.toString(NoOfGlobIters), iValueLength);
+    saConfig[6] = org.ogolem.ligand.LittleHelpers.fixedLength("Parent Selector  :", iVarLength);
+    saConfig[6] += org.ogolem.ligand.LittleHelpers.fixedLength(whichParentsChoice, iValueLength);
+    saConfig[7] = org.ogolem.ligand.LittleHelpers.fixedLength("Crossover by distance  :", iVarLength);
+    saConfig[7] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(doDistCross), iValueLength);
+    saConfig[8] = org.ogolem.ligand.LittleHelpers.fixedLength("Excessiv Mutations  :", iVarLength);
+    saConfig[8] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(bMoreMutation), iValueLength);
+    saConfig[9] = org.ogolem.ligand.LittleHelpers.fixedLength("Additional Diversity Check  :", iVarLength);
+    saConfig[9] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(FitnessDiversity), iValueLength);
+    saConfig[9] = org.ogolem.ligand.LittleHelpers.fixedLength("Restart  :", iVarLength);
+    saConfig[9] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(bRestart), iValueLength);
+    saConfig[10] = org.ogolem.ligand.LittleHelpers.fixedLength("Restart Pool  :", iVarLength);
+    saConfig[10] += org.ogolem.ligand.LittleHelpers.fixedLength(RestartPool, iValueLength);
+    saConfig[11] = org.ogolem.ligand.LittleHelpers.fixedLength("Use Niching  :", iVarLength);
+    saConfig[11] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(doNiching), iValueLength);
+    saConfig[12] = "    Fitness Options:";
+    saConfig[13] = org.ogolem.ligand.LittleHelpers.fixedLength("Target Dipole  :", iVarLength);
+    saConfig[13] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(targetDipole[0]), iValueLength);
+    saConfig[14] = " ".repeat(iVarLength - 1) + " " + org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(targetDipole[1]), iValueLength);
+    saConfig[15] = " ".repeat(iVarLength - 1) + " " + org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(targetDipole[2]), iValueLength);
+    saConfig[16] = org.ogolem.ligand.LittleHelpers.fixedLength("Refernece Temperature  :", iVarLength);
+    saConfig[16] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(T), iValueLength);
+    saConfig[17] = org.ogolem.ligand.LittleHelpers.fixedLength("Dipole Penelty Factor  :", iVarLength);
+    saConfig[17] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(dDipolePen), iValueLength);
+    saConfig[18] = org.ogolem.ligand.LittleHelpers.fixedLength("Charge Penelty Factor  :", iVarLength);
+    saConfig[18] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(dChargePen), iValueLength);
+    saConfig[19] = org.ogolem.ligand.LittleHelpers.fixedLength("Guest Gradient Penelty Faktor  :", iVarLength);
+    saConfig[19] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(dGradPen), iValueLength);
+    saConfig[20] = org.ogolem.ligand.LittleHelpers.fixedLength("Binding Constant Penelty Factor  :", iVarLength);
+    saConfig[20] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(dChargePen), iValueLength);
+    saConfig[21] = org.ogolem.ligand.LittleHelpers.fixedLength("Use Refenece Fitness  :", iVarLength);
+    saConfig[21] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(useRefFit), iValueLength);
+    saConfig[22] = org.ogolem.ligand.LittleHelpers.fixedLength("Acceptable FitnGess Value  :", iVarLength);
+    saConfig[22] += org.ogolem.ligand.LittleHelpers.fixedLength(Double.toString(acceptableFitness), iValueLength);
+    saConfig[23] = "     Local Optimization Options:";
+    saConfig[24] = org.ogolem.ligand.LittleHelpers.fixedLength("Program used  :", iVarLength);
+    saConfig[25] = org.ogolem.ligand.LittleHelpers.fixedLength("with Method  :", iVarLength);
+
+    if (300 <= WhichLocAlgo) {
+      iMethod = WhichLocAlgo - 300;
+      saConfig[24] += org.ogolem.ligand.LittleHelpers.fixedLength("xtb", iValueLength);
+      switch (iMethod) {
+        case 0:
+          sMethod = "gxtb";
+          break;
+        case 1:
+          sMethod = "gfn 0";
+          break;
+        case 2:
+          sMethod = "gfn 1";
+          break;
+        case 3:
+          sMethod = "gfn 2";
+          break;
+        case 4:
+          sMethod = "gfnff";
+          break;
+      }
+    } else if (200 <= WhichLocAlgo) {
+      iMethod = WhichLocAlgo - 200;
+      saConfig[24] += org.ogolem.ligand.LittleHelpers.fixedLength("mopac", iValueLength);
+      switch (iMethod) {
+        case 0:
+          sMethod = "mndo";
+          break;
+        case 1:
+          sMethod = "am1";
+          break;
+        case 2:
+          sMethod = "pm3";
+          break;
+        case 3:
+          sMethod = "pm5";
+          break;
+        case 4:
+          sMethod = "pm6";
+          break;
+        case 5:
+          sMethod = "pm6-d3h4";
+          break;
+        case 6:
+          sMethod = "pm7";
+          break;
+      }
+        
+    }
+    saConfig[25] += org.ogolem.ligand.LittleHelpers.fixedLength(sMethod, iValueLength);
+    saConfig[26] = org.ogolem.ligand.LittleHelpers.fixedLength("Maximum number of Cycles  :", iVarLength);
+    saConfig[26] += org.ogolem.ligand.LittleHelpers.fixedLength(Integer.toString(iMaxIterLocOpt), iValueLength);
+    saConfig[27] = org.ogolem.ligand.LittleHelpers.fixedLength("Preoptimize Scaffold  :", iVarLength);
+    saConfig[27] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(bPreOpt), iValueLength);
+    saConfig[28] = org.ogolem.ligand.LittleHelpers.fixedLength("Constrain Scaffold  :", iVarLength);
+    saConfig[28] += org.ogolem.ligand.LittleHelpers.fixedLength(Boolean.toString(bConstraints), iValueLength);
+    saConfig[29] = saConfig[0];
+    for (int i = 0; i < iNumLines; i++) {
+      System.out.println(saConfig[i]);
+    }
+  }
 
 
   // Excatly copyied from SwitchesConfig.java. Would be better not to have this code two times!!!

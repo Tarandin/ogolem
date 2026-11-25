@@ -312,7 +312,7 @@ public class Ligand extends ContinuousProblem<Fragment> {
       Output.printMiscToFile(
           sFile, this.optimizedStructuresLigand, this.optimizedStructuresComplex);
     } catch (Exception e) {
-      System.err.println("Could not write Individual to to File " + sFile + "! " + e.toString());
+      System.err.println("WARNING: Could not write Individual to to File " + sFile + "! " + e.toString());
       throw e;
     }
   }

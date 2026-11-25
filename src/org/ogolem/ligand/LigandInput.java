@@ -50,6 +50,7 @@ import org.ogolem.core.CastException;
 import org.ogolem.core.InitIOException;
 import org.ogolem.core.SerialException;
 import org.ogolem.generic.genericpool.GenericPool;
+import org.ogolem.generic.genericpool.Niche;
 
 /*
  * Toolset to read the Input from the File and help configure it.
@@ -68,9 +69,11 @@ public final class LigandInput {
 
     final String[] FileContent = readFileIn(InputFile);
 
-    if (!FileContent[0].equalsIgnoreCase("###OGOLEMLIGANDS###")) {
-      throw new InitIOException("Input file needs to start with ###OGOLEMLIGANDS###");
-    }
+    /*
+     *if (!FileContent[0].equalsIgnoreCase("###OGOLEMLIGANDS###")) {
+     *  throw new InitIOException("Input file needs to start with ###OGOLEMLIGANDS###");
+     *}
+     */
 
     for (String CurrentLine : FileContent) {
       CurrentLine = CurrentLine.trim();
@@ -440,6 +443,23 @@ public final class LigandInput {
       }  else if (CurrentLine.startsWith("ParentSelector=")) {
          final String Temp = CurrentLine.substring(15).trim();
          config.whichParentsChoice = Temp;
+      } else if (CurrentLine.startsWith("MaxTime=")) {
+        final String Temp = CurrentLine.substring(8).trim();
+        final String TempDays = Temp.substring(0, Temp.indexOf("-"));
+        final String TempHours = Temp.substring(Temp.indexOf("-") + 1, Temp.indexOf(":"));
+        final String Temp2 = Temp.substring(Temp.indexOf(":") + 1);
+        final String TempMin = Temp2.substring(0, Temp2.indexOf(":"));
+        final String TempSec = Temp2.substring(Temp2.indexOf(":") + 1);
+        long lMaxTime = 0;
+        try {
+          lMaxTime += Long.parseLong(TempDays) * 86400;
+          lMaxTime += Long.parseLong(TempHours) * 3600;
+          lMaxTime += Long.parseLong(TempMin) * 60;
+          lMaxTime += Long.parseLong(TempSec);
+          config.lMaxTime = lMaxTime * 1000;
+        } catch (Exception e) {
+          System.err.println("Warning: Couldn't parse Maximal Time. Use Long.MAX_VALUE instead!");
+        }
       } else {
         System.err.println(
             "WARNING: Unknown keyword. What is that surpoused to mean?\n " + CurrentLine);
@@ -479,270 +499,6 @@ public final class LigandInput {
     }
     return resCharges;
   }
-
-  /*
-  static double[] readSPMopacOutput(String sMopacOutput,int iNoOfAtoms, CartesianCoordinates cartes)
-     throws CastException, InitIOException {
-
-     String[] saData;
-     try {
-       saData = readFileIn(sMopacOutput);
-     } catch (Exception e) {
-       throw new InitIOException("Error in reading mopac's SP Output file, "+e.toString(),e);
-     }
-
-     int iEnergyLine = -1;
-     int iGradLine = -1;
-     int iDipoleLine = -1;
-     int iChargeLine = -1;
-     int iSolvLine = -1;
-     double[] dDipole =  new double[3];
-
-     for (int iLine = 0; iLine < saData.length; iLine++) {
-        if (saData[iLine].contains("FINAL HEAT OF FORMATION")) {
-          iEnergyLine = iLine;
-        } else if (saData[iLine].contains("GRADIENT NORM")) {
-          iGradLine = iLine;
-        } else if (saData[iLine].contains("DIPOLE           X")) {
-          iDipoleLine = iLine + 3;
-        } else if (saData[iLine].contains("TYPE          CHARGE")) {
-          iChargeLine = iLine+1;
-        } else if (saData[iLine].contains("DIELECTRIC ENERGY")) {
-          iSolvLine = iLine;
-        } 
-        if (iChargeLine > 0 && iEnergyLine > 0 && iGradLine > 0 && iDipoleLine > 0) break;
-     }
-  
-     double dSolvE = 0.0;
-     try {
-       if (iChargeLine > 0) parseMopacCharges(saData, iChargeLine, iNoOfAtoms, cartes);
-       parseMopacEnergy(saData[iEnergyLine], cartes);
-       parseMopacSolvE(saData[iSolvLine], cartes);
-       if (iGradLine > 0) parseMopacGradient(saData[iGradLine], cartes);
-       if (iDipoleLine > 0) dDipole = parseMopacDipole(saData[iDipoleLine]);
-     } catch (CastException e) {
-       throw e;
-     }
-    return dDipole;
-  }
-
-  static CartesianCoordinates readXYZMopacOutput(
-      String sMopacOutput,
-      int iNoOfAtoms,
-      int iNoOfMolecules,
-      int[] iaNoAtsPerMol,
-      double[] tmpDipole)
-      throws CastException, InitIOException {
-    String[] saData;
-    try {
-      saData = readFileIn(sMopacOutput);
-    } catch (Exception e) {
-      throw new InitIOException("Error in reading XYZ mopac's output file. "+e.toString(), e);
-    }
-
-    int iGeometryStart = -1;
-    int iEnergyLine = -1;
-    int iGradLine = -1;
-    int iDipoleLine = -1;
-    int iChargeLine = -1;
-    int iSolvLine = -1;
-    double[] daDip = new double[3];
-    for (int i = 0; i < saData.length; i++) {
-      if (saData[i].contains("CARTESIAN COORDINATES") && !(saData[i + 2].contains("NO."))) {
-        iGeometryStart = i + 2;
-      } else if (saData[i].contains("FINAL HEAT OF FORMATION")) {
-        iEnergyLine = i;
-      } else if (saData[i].contains("GRADIENT NORM")) {
-        iGradLine = i;
-      } else if (saData[i].contains("DIPOLE           X")) {
-        iDipoleLine = i + 3;
-      } else if (saData[i].contains("TYPE          CHARGE")) {
-        iChargeLine = i+1;
-      } else if (saData[i].contains("DIELECTRIC ENERGY")) {
-        iSolvLine = i;
-      }
-      if (iChargeLine > 0 && iGeometryStart > 0 && iEnergyLine > 0 && iGradLine > 0 && iDipoleLine > 0) break;
-    }
-
-    if (iChargeLine < 0 || iGeometryStart < 0 || iEnergyLine < 0 || iGradLine < 0 || iDipoleLine < 0) {
-      System.err.println("Mopac did not ended sucessfully. Return null as Geometry!");
-      return null;
-    }
-
-    String sTemp;
-    String sTemp2;
-    CartesianCoordinates cartesians;
-    double[] daTempCoord = new double[3];
-    double dSolvE = 0.0;
-
-    try {
-      cartesians = parseMopacXYZ(saData, iGeometryStart, iNoOfAtoms);
-      parseMopacCharges(saData, iChargeLine, iNoOfAtoms, cartesians);
-      parseMopacEnergy(saData[iEnergyLine], cartesians);
-      parseMopacSolvE(saData[iSolvLine], cartesians);
-      parseMopacGradient(saData[iGradLine], cartesians);
-      daDip = parseMopacDipole(saData[iDipoleLine]).clone();
-    } catch (CastException e) {
-      throw e;
-    }
-
-    //  We want it to change the input array. This works compaired to clone...
-    for (int iDir = 0; iDir < 3; iDir++) {
-      tmpDipole[iDir] = daDip[iDir];
-    }
-
-    return cartesians;
-  }
-
-  static CartesianCoordinates parseMopacXYZ(String[] saData, int iStart ,int nAtoms) throws CastException {
-    int[] iaAtoms = new int[] {nAtoms};
-    CartesianCoordinates newCartes = new CartesianCoordinates(nAtoms,1, iaAtoms);
-    String sTemp;
-    String[] splitLine;
-    int iLine;
-    double[] daTempCoord = new double[3];
-    for (int i = 0; i < nAtoms; i++) {
-      iLine = i + iStart;
-      sTemp = saData[iLine];
-      splitLine = sTemp.trim().split("\\s+");
-      try {
-        newCartes.setAtomType(i, splitLine[1]);
-        for (int iDir = 0; iDir < 3; iDir++) {
-          daTempCoord[iDir] = Double.parseDouble(splitLine[iDir + 2]) * ANGTOBOHR;
-        }
-      } catch (Exception e) {
-        System.err.println("Start of Failed Geometry: " + saData[iStart] + "\n" + sTemp + "\n" + splitLine[0]);
-        throw new CastException("Failure in mopac coordinate casting Atom" + i + ":\n" + saData[iLine], e);
-      }
-      newCartes.setXYZCoordinatesOfAtom(daTempCoord, i);
-    }
-    newCartes.recalcAtomNumbers();
-    return newCartes;
-  }
-
-  static void parseMopacCharges(String[] saData, int iStart, int nAtoms, CartesianCoordinates cartes) throws CastException {
-    String sTempLine, sTempNumber;
-    String[] splitLine;
-    float fTempCharge;
-    int iTempIdx;
-    for (int iAtom = iStart; iAtom < iStart+nAtoms; iAtom++) {
-      sTempLine = saData[iAtom].trim();
-      splitLine = sTempLine.split("\\s+");
-      try {
-        fTempCharge = Float.parseFloat(splitLine[2]);
-        cartes.setChargeAtAtom(fTempCharge, iAtom - iStart);
-      } catch (Exception e){
-        throw new CastException("Failue in mopac charge csting.", e);
-      }
-    }
-  }
-
-  static void parseMopacEnergy(String sLine, CartesianCoordinates cartes) throws CastException {
-    String[] splitLine = sLine.trim().split("\\s+");
-    double dEnergy = 0.0;
-    try {
-      dEnergy = Double.parseDouble(splitLine[8])* KJTOHARTREE;
-      cartes.setEnergy(dEnergy);
-    } catch (Exception e) {
-      throw new CastException("Unable to Parse Heat of Formation.", e);
-    }
-  }
-
-  static void parseMopacSolvE(String sLine, CartesianCoordinates cartes) throws CastException {
-    String[] splitLine = sLine.trim().split("\\s+");
-    double dSolvE = 0.0;
-    try {
-      dSolvE = Double.parseDouble(splitLine[3]) * EVTOHARTREE;
-    } catch (Exception e) {
-      throw new CastException("Unable to Parse Solvation Energy!.", e);
-    }
-    cartes.setEnergy(cartes.getEnergy() + dSolvE);
-  }
-
-  static void parseMopacGradient(String sLine, CartesianCoordinates cartes) throws CastException {
-    String[] splitLine = sLine.trim().split("\\s+");
-    double dGradNorm = 0.0;
-    try {
-      dGradNorm = Double.parseDouble(splitLine[5]);
-      cartes.setGradNorm(dGradNorm);
-    } catch (Exception e) {
-      throw new CastException("Unable to Parse Gradient Norm.", e);
-    }
-  }
-
-  static double[] parseMopacDipole(String sLine) throws CastException {
-    String[] splitLine = sLine.trim().split("\\s+");
-    double[] adDipole = new double[3];;
-    try {
-      for (int iDir = 0; iDir < 3; iDir++) {
-        adDipole[iDir] = Double.parseDouble(splitLine[1+iDir]);
-      }
-    } catch (Exception e) {
-      throw new CastException("Unable to Parse Dipole.", e);
-    }
-    return adDipole;
-  }
-
-  static double[][] readMopacGuestGradient(String sMopacOutput, int iGuestAtoms) throws InitIOException, CastException {
-    boolean bSingleLine = false;
-    double[][] dGrad = new double[iGuestAtoms][3];
-    int iGradLine = -1;
-    String[] saData;
-    try {
-      saData = readFileIn(sMopacOutput);
-    } catch (Exception e) {
-      throw new InitIOException("Error in reading mopac's SP Output file, "+e.toString(),e);
-    }
-    for (int iLine = 0; iLine < saData.length; iLine++) {
-      if (saData[iLine].contains("FINAL  POINT  AND  DERIVATIVES")) {
-        iGradLine = iLine + 3;
-        if (saData[iLine].contains("Atom")) {
-          iGradLine += 2;
-          bSingleLine = true;
-        }
-        break;
-      }
-    }
-
-    if (iGradLine == -1) return null;
-
-    try {
-      dGrad = parseMopacFullGradient(saData, iGradLine, iGuestAtoms, bSingleLine);
-    } catch (CastException e) {
-      throw new CastException("Error while Casting Guest gradients!. " + e.toString());
-    }
-    return dGrad;
-  }
-
-  static double[][] parseMopacFullGradient(String[] saData, int iGradLine, int iAtoms ,boolean isSingleLine)
-    throws CastException {
-    double[][] dGrad = new double[iAtoms][3];
-    int iNumLines = iAtoms;
-    String[] splitLine;
-    if (!isSingleLine) iNumLines *= 3; 
-    for (int iLine = iGradLine; iLine < iGradLine + iNumLines; iLine++) {
-      splitLine = saData[iLine].trim().split("\\s+");
-      if (isSingleLine) {
-        try {
-          for (int iDir = 0; iDir < 3; iDir++) {
-            dGrad[iLine - iGradLine][iDir] = Double.parseDouble(splitLine[iDir + 2]);
-            dGrad[iLine - iGradLine][iDir] *= KCALTOHARTREE;
-          }
-        } catch (Exception e) {
-          throw new CastException("Could not Cast Double in Line " + saData[iLine] + ". " + e.toString());
-        }
-      } else {
-        try {
-          dGrad[(iLine - iGradLine) / 3][(iLine - iGradLine) % 3] = Double.parseDouble(splitLine[6]);
-          dGrad[(iLine - iGradLine) / 3][(iLine - iGradLine) % 3] *= KCALTOHARTREE; 
-        } catch (Exception e) {
-          throw new CastException("Could not Cast Double " + splitLine[6] + ". " + e.toString());
-        }
-      }
-    }
-    return dGrad;
-  }
-  */
 
   static void removeFile(final String sToFilePath) throws InitIOException {
     final File f = new File(sToFilePath);
@@ -846,6 +602,27 @@ public final class LigandInput {
         }
 
         return pool;
+    }
+
+   @SuppressWarnings("unchecked")
+    public static GenericPool<Fragment, Ligand> getRestartPool(LigandConfig lConf) throws InitIOException {
+      GenericPool<Fragment, Ligand> poolRestart;
+      try {
+        poolRestart = readLigandPool(lConf.RestartPool);
+      } catch (Exception e) {
+        throw new InitIOException("Unable to read binary input for pool!\n" + e.toString());
+      }
+      Niche niche = null;
+      Ligand refLigand = poolRestart.getIndividualAtPosition(0);
+      if (lConf.doNiching) niche = lConf.getNicheComputer().computeNiche(refLigand);
+      GenericPool<Fragment, Ligand> pool = new GenericPool<>(lConf.getGenericConfig(), refLigand);
+      pool.addIndividualForced(refLigand, niche, refLigand.getFitness());
+      for (int i = 1; i < poolRestart.getPoolSize(); i++) {
+        refLigand = poolRestart.getIndividualAtPosition(i);
+        if (lConf.doNiching) niche = lConf.getNicheComputer().computeNiche(refLigand);
+        pool.addIndividualForced(refLigand, niche, refLigand.getFitness());
+      }
+      return pool;
     }
 
     private static Object ReadBinInput(final String sToBinPath) throws InitIOException, SerialException {

@@ -48,7 +48,7 @@ import org.ogolem.core.StreamGobbler;
 
 final class XTBLocOpt implements LocalOptimization {
 
-  private static final boolean bDebug = true;
+  private static final boolean bDebug = false;
   private final int iWhichBackend;
   private final int iNoOfCycles;
   private final String[] envs = {"OMP_NUM_THREADS=1", "OMP_MAX_ACTIVE_LEVELS=1", "MKL_NUM_THREADS=1"};
@@ -62,7 +62,7 @@ final class XTBLocOpt implements LocalOptimization {
 
   @Override
   public CartesianCoordinates doLocOpt(final CartesianCoordinates startCartes, final int id, Ligand lig) {
-    String sCalcFolder = "./xtb" + id + "/";
+    String sCalcFolder = System.getProperty("user.dir") + "/xtb" + id + "/";
     double[] tmpDipole = new double[3];
     boolean converged = false;
     final short[] iaSpins = startCartes.getAllSpins();
@@ -88,6 +88,7 @@ final class XTBLocOpt implements LocalOptimization {
               startCartes.getNoOfAtoms(),
               tmpDipole);
     } catch (Exception e) {
+      if (bDebug) System.err.println("WARNING: Could not read XYZ Output!\n" + e.toString());
       newCartes =null;
     }
 
@@ -108,7 +109,7 @@ final class XTBLocOpt implements LocalOptimization {
   public boolean doSinglePoint(final CartesianCoordinates Cartes, final int id, Ligand lig) {
     boolean success = true;
     double[] tmpDipole = new double[3];
-    String sCalcFolder = "./xtbSP" + id + "/";
+    String sCalcFolder = System.getProperty("user.dir") + "/xtbSP" + id + "/";
     if (!this.runXTB(Cartes, id, true)) {
       if (!bDebug) {
         try {
@@ -126,7 +127,7 @@ final class XTBLocOpt implements LocalOptimization {
           Cartes.getNoOfAtoms(),
           Cartes);
     } catch (Exception e) {
-      if (bDebug) System.err.println("Could not read XTB Output!\n" + e.toString());
+      if (bDebug) System.err.println("WARNING: Could not read XTB Output!\n" + e.toString());
       success = false;
     }
 
@@ -146,12 +147,13 @@ final class XTBLocOpt implements LocalOptimization {
   public double[][] getGuestGradient(final CartesianCoordinates cartes, final int iID, Ligand lig) {
     double[][] dGrad;
     int iGuestAtoms = cartes.getNoOfAtoms() - lig.getNumOfAtoms();
-    String sCalcFolder = "./xtbSP" + iID + "/";
+    String sCalcFolder = System.getProperty("user.dir") + "/xtbSP" + iID + "/";
 
     if (!this.runXTB(cartes, iID, true)) return null;
     try {
       dGrad = this.xr.readGuestGradient(sCalcFolder, iGuestAtoms);
     } catch (Exception e) {
+      if (bDebug) System.err.println("WARNING: Could not read Gradient of Guest! " + e.toString());
       return null;
     }
 
@@ -258,13 +260,13 @@ final class XTBLocOpt implements LocalOptimization {
       }
     }
     if (!converged) {
-      System.err.println("FIRE locopt has not found adequarte Structure! " + Fnorm + " shoulb be at " + eps + "!");
+      System.err.println("WARNING: FIRE locopt has not found adequarte Structure! " + Fnorm + " shoulb be at " + eps + "!");
       //newCartes = null;
     } else {
       try {
         final double[] dDipoleDump = this.xr.readSPOutput(sCalcFolder, lig.getNumOfAtoms(), newCartes);
       } catch (Exception e) {
-        if (bDebug) System.err.println("Error while reading final Output! " + e.toString());
+        if (bDebug) System.err.println("WARNING: Could not reading final Output! " + e.toString());
         newCartes = null;
       }
     }
@@ -280,7 +282,7 @@ final class XTBLocOpt implements LocalOptimization {
   }
 
   private boolean runXTB(final CartesianCoordinates Cartes, int iID, boolean justSP) {
-    String sCalcFolder = "./xtb";
+    String sCalcFolder = System.getProperty("user.dir") + "/xtb";
     if (justSP) sCalcFolder += "SP";
     sCalcFolder += iID + "/";
     String[] saXTBData;
@@ -288,7 +290,7 @@ final class XTBLocOpt implements LocalOptimization {
     try {
       org.ogolem.io.OutputPrimitives.createAFolder(sCalcFolder);
     } catch (IOException e) {
-      System.err.println("Unable to create work folder!");
+      System.err.println("WARNING: Unable to create work folder!");
       return false;
     }
     File fCalcFolder = new File(sCalcFolder);
@@ -355,7 +357,7 @@ final class XTBLocOpt implements LocalOptimization {
     try {
       saCommand[0] = System.getenv("XTBHOME")+"/xtb";
     } catch (Exception e) {
-      if (bDebug) System.err.println("Could not find XTBHOME, uses xtb instead.");
+      if (bDebug) System.err.println("WARNING: Could not find XTBHOME, uses xtb instead.");
       saCommand[0] = "xtb";
     }
     saCommand[2] = sMethod;
@@ -363,7 +365,7 @@ final class XTBLocOpt implements LocalOptimization {
     saCommand[3] = "";
     saCommand[4] = "";
     if (!justSP) {
-      saCommand[3] = "--opt tight";
+      saCommand[3] = "--opt";
       saCommand[4] = "--cycles " + this.iNoOfCycles;
     }
     saCommand[5] = "--grad";
